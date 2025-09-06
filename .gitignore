@@ -130,7 +130,7 @@ dmypy.json
 
 # Custom exclusions
 # Exclude config.py file from app/core directory
-app/core/config.py
+# app/core/config.py
 
 # Database files
 *.db
