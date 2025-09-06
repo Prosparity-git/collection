@@ -7,6 +7,7 @@ class ApplicationItem(BaseModel):
     payment_id: int  # 🎯 ADDED! This is the repayment_id for comments
     demand_num: Optional[str] = None  # 🎯 ADDED! Repayment Number from demand_num
     applicant_name: str
+    mobile: Optional[str] = None
     emi_amount: Optional[float]
     status: Optional[str]
     emi_month: Optional[str]

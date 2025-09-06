@@ -1,0 +1,32 @@
+# Production Requirements for Prosparity Collection Dashboard
+# Remove development dependencies for production deployment
+
+# FastAPI and ASGI server
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+
+# Database dependencies
+sqlalchemy>=2.0.23
+pymysql>=1.1.0
+cryptography>=41.0.7
+
+# Data validation and serialization
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+email-validator>=2.1.0
+
+# Authentication and Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# CORS middleware
+python-multipart>=0.0.6
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Date and time handling
+python-dateutil>=2.8.2
+
+# Production server optimization
+gunicorn>=21.2.0

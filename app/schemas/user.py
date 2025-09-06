@@ -39,6 +39,9 @@ class UserResponse(BaseModel):
     mobile: Optional[str] = None
     role: str
     status: Optional[str] = None
+    # 🎯 NEW FIELDS FOR LOGIN/LOGOUT TRACKING
+    last_login_time: Optional[datetime] = None
+    last_logout_time: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -64,6 +67,24 @@ class ChangePassword(BaseModel):
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')
         return v
+
+# Bulk Registration Schemas
+class BulkUserCreate(BaseModel):
+    users: list[UserCreate]
+    
+    @validator('users')
+    def validate_users_list(cls, v):
+        if not v:
+            raise ValueError('Users list cannot be empty')
+        if len(v) > 100:  # Limit to 100 users per batch
+            raise ValueError('Cannot register more than 100 users at once')
+        return v
+
+class BulkUserResponse(BaseModel):
+    success_count: int
+    failed_count: int
+    created_users: list[UserResponse]
+    failed_users: list[dict]  # Will contain user data and error message
 
 # Keep old schemas for backward compatibility (deprecated)
 class UserBase(BaseModel):

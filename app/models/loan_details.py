@@ -12,6 +12,8 @@ class LoanDetails(Base):
     disbursal_date = Column(DATE)
     Collection_relationship_manager_id = Column(Integer)
     source_relationship_manager_id = Column(Integer)
+    source_team_lead_id = Column(Integer)
+    current_team_lead_id = Column(Integer)
     lenders_id = Column(Integer, ForeignKey("lenders.id"))
     tenure = Column(Integer)
     created_at = Column(TIMESTAMP, server_default=func.now())

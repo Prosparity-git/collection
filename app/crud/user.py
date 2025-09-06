@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.core.security import verify_password, get_password_hash
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
@@ -94,4 +94,69 @@ def get_user(db: Session, user_id: int) -> Optional[User]:
 # Legacy function for backward compatibility
 def verify_user(db: Session, email: str, password: str) -> Optional[User]:
     """Legacy verify_user function - use authenticate_user instead"""
-    return authenticate_user(db, email, password) 
+    return authenticate_user(db, email, password)
+
+def update_login_time(db: Session, user_id: int) -> bool:
+    """Update user's last login time"""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return False
+    
+    user.last_login_time = datetime.utcnow()
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    return True
+
+def update_logout_time(db: Session, user_id: int) -> bool:
+    """Update user's last logout time"""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return False
+    
+    user.last_logout_time = datetime.utcnow()
+    user.updated_at = datetime.utcnow()
+    db.commit()
+    return True
+
+def create_bulk_users(db: Session, users: List[UserCreate]) -> Dict[str, Any]:
+    """Create multiple users in bulk with error handling"""
+    created_users = []
+    failed_users = []
+    
+    for user_data in users:
+        try:
+            # Check if user already exists
+            existing_user = get_user_by_email(db, user_data.email)
+            if existing_user:
+                failed_users.append({
+                    "user_data": {
+                        "name": user_data.name,
+                        "email": user_data.email,
+                        "role": user_data.role
+                    },
+                    "error": "Email already registered"
+                })
+                continue
+            
+            # Create user
+            db_user = create_user(db, user_data)
+            created_users.append(db_user)
+            
+        except Exception as e:
+            failed_users.append({
+                "user_data": {
+                    "name": user_data.name,
+                    "email": user_data.email,
+                    "role": user_data.role
+                },
+                "error": str(e)
+            })
+    
+    return {
+        "success_count": len(created_users),
+        "failed_count": len(failed_users),
+        "created_users": created_users,
+        "failed_users": failed_users
+    }
+
+ 

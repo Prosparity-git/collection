@@ -32,7 +32,7 @@ def get_filtered_applications(
     limit: int = 20
 ):
     RM = aliased(User)
-    TL = aliased(User)
+    CurrentTL = aliased(User)
 
     # Create base query fields
     base_fields = [
@@ -41,12 +41,13 @@ def get_filtered_applications(
         PaymentDetails.demand_num.label("demand_num"),  # 🎯 ADDED! Repayment Number
         ApplicantDetails.first_name,
         ApplicantDetails.last_name,
+        ApplicantDetails.mobile,
         PaymentDetails.demand_amount.label("emi_amount"),
         RepaymentStatus.repayment_status.label("status"),
         PaymentDetails.demand_date.label('emi_month'),
         Branch.name.label("branch"),
         RM.name.label("rm_name"),
-        TL.name.label("tl_name"),
+        CurrentTL.name.label("tl_name"),
         Dealer.name.label("dealer"),
         Lender.name.label("lender"),
         PaymentDetails.ptp_date.label("ptp_date"),
@@ -74,7 +75,7 @@ def get_filtered_applications(
             .join(Lender, LoanDetails.lenders_id == Lender.id)
             .join(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)
             .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
-            .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
+            .outerjoin(CurrentTL, LoanDetails.current_team_lead_id == CurrentTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
         )
     else:
@@ -106,7 +107,7 @@ def get_filtered_applications(
             .join(Lender, LoanDetails.lenders_id == Lender.id)
             .join(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)
             .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
-            .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
+            .outerjoin(CurrentTL, LoanDetails.current_team_lead_id == CurrentTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
         )
 
@@ -139,7 +140,7 @@ def get_filtered_applications(
         query = query.filter(RM.name == rm_name)
     
     if tl_name:
-        query = query.filter(TL.name == tl_name)
+        query = query.filter(CurrentTL.name == tl_name)
     
     # Repayment ID filtering
     if repayment_id:
@@ -240,12 +241,13 @@ def get_filtered_applications(
             "payment_id": row.payment_id,  # 🎯 ADDED! This is the repayment_id for comments
             "demand_num": str(row.demand_num) if row.demand_num else None,  # 🎯 ADDED! Repayment Number (converted to string)
             "applicant_name": f"{row.first_name or ''} {row.last_name or ''}".strip(),
+            "mobile": str(row.mobile) if row.mobile else None,
             "emi_amount": float(row.emi_amount) if row.emi_amount else None,
             "status": row.status,
             "emi_month": row.emi_month.strftime('%b-%y') if row.emi_month else None,
             "branch": row.branch,
-            "rm_name": row.rm_name,
-            "tl_name": row.tl_name,
+            "rm_name": row.rm_name if row.rm_name else None,
+            "tl_name": row.tl_name if row.tl_name else None,
             "dealer": row.dealer,
             "lender": row.lender,
             "ptp_date": row.ptp_date.strftime('%y-%m-%d') if row.ptp_date else None,

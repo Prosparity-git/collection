@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, TIMESTAMP, func, Enum
+from sqlalchemy import Column, Integer, String, TIMESTAMP, func, Enum, DateTime
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -12,6 +12,9 @@ class User(Base):
     mobile = Column(String(15), nullable=True)  # 🎯 ADDED! From DB schema
     role = Column(String(50), nullable=True)
     status = Column(Enum('active', 'inactive'), default='active', nullable=True)  # 🎯 ADDED! From DB schema
+    # 🎯 NEW COLUMNS FOR LOGIN/LOGOUT TRACKING
+    last_login_time = Column(DateTime, nullable=True)
+    last_logout_time = Column(DateTime, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 

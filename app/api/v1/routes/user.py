@@ -5,12 +5,14 @@ from app.core.deps import get_db, get_current_user, require_admin
 from app.crud.user import (
     authenticate_user, create_user, get_user_by_email, 
     update_user_password, verify_user_password, get_users_by_role,
-    update_user_role, delete_user, get_users, get_user
+    update_user_role, delete_user, get_users, get_user,
+    update_login_time, update_logout_time, create_bulk_users
 )
 from app.core.security import create_access_token
 from app.schemas.user import (
     UserLogin, Token, UserCreate, UserResponse, 
-    PasswordResetRequest, PasswordReset, ChangePassword
+    PasswordResetRequest, PasswordReset, ChangePassword,
+    BulkUserCreate, BulkUserResponse
 )
 from datetime import timedelta
 from app.core.config import settings
@@ -32,6 +34,9 @@ def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # 🎯 UPDATE LOGIN TIME
+    update_login_time(db, user.id)
     
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -68,6 +73,18 @@ def register(
     # Create new user
     db_user = create_user(db=db, user=user)
     return db_user
+
+@router.post("/bulk-register", response_model=BulkUserResponse)
+def bulk_register(
+    bulk_data: BulkUserCreate,
+    current_user: dict = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Register multiple users in bulk (Admin only)
+    """
+    result = create_bulk_users(db=db, users=bulk_data.users)
+    return result
 
 @router.get("/me", response_model=UserResponse)
 def read_users_me(current_user: dict = Depends(get_current_user)):
@@ -185,8 +202,16 @@ def delete_user_endpoint(
         )
 
 @router.post("/logout")
-def logout():
+def logout(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Logout user (client should discard token)
     """
-    return {"message": "Successfully logged out"} 
+    # 🎯 UPDATE LOGOUT TIME
+    update_logout_time(db, current_user["id"])
+    
+    return {"message": "Successfully logged out"}
+
+ 
