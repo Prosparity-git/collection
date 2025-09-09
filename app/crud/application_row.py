@@ -169,7 +169,8 @@ def get_filtered_applications(
     # 🎯 ADDED! Alphabetical ordering by Applicant Name (First Name, then Last Name)
     query = query.order_by(ApplicantDetails.first_name.asc(), ApplicantDetails.last_name.asc())
     
-    total = query.count()
+    #total = query.count()
+    total = query.with_entities(PaymentDetails.id).count()
     results = []
 
     for row in query.offset(offset).limit(limit).all():

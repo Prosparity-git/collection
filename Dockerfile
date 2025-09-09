@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port (dev = 8001, prod later will use 8000)
-EXPOSE 8000
+EXPOSE 8000 8443
 
 # Run FastAPI app with Gunicorn + Uvicorn worker
 #CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-b", "0.0.0.0:8001", "app.main:app"]
