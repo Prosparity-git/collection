@@ -16,7 +16,7 @@ env/
 .env.development
 .env.production
 .env.test
-# prod.env
+prod.env
 env.example
 
 # Configuration Files
