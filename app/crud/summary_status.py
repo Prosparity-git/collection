@@ -30,7 +30,7 @@ def get_summary_status_with_filters(
     RM = aliased(User)
     TL = aliased(User)
     
-    # Base query with joins
+    # Base query with joins - FIXED: Use current_team_lead_id instead of source_relationship_manager_id
     query = (
         db.query(PaymentDetails)
         .select_from(PaymentDetails)
@@ -40,8 +40,8 @@ def get_summary_status_with_filters(
         .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
         .join(Lender, LoanDetails.lenders_id == Lender.id)
         .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
-        .join(TL, LoanDetails.current_team_lead_id == TL.id)
        # .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
+        .join(TL, LoanDetails.current_team_lead_id == TL.id)  # FIXED: Use current_team_lead_id
         .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
     )
     
