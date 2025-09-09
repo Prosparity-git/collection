@@ -6,6 +6,7 @@ from app.models.repayment_status import RepaymentStatus
 from app.models.vehicle_status import VehicleStatus
 from app.models.payment_details import PaymentDetails
 from app.models.user import User
+from app.models.loan_details import LoanDetails
 from datetime import date, timedelta
 
 
@@ -62,8 +63,13 @@ def filter_options(db: Session):
     lenders = [l.name for l in db.query(Lender).all()]
     statuses = [r.repayment_status for r in db.query(RepaymentStatus).all()]
     vehicle_statuses = [v.vehicle_status for v in db.query(VehicleStatus).all()]
-    team_leads = [u.name for u in db.query(User).filter(User.role == "TL")]
-    rms = [u.name for u in db.query(User).filter(User.role == "RM")]
+    # Get distinct TL and RM IDs from loan_details table
+    team_lead_ids = [row[0] for row in db.query(LoanDetails.current_team_lead_id.distinct()).filter(LoanDetails.current_team_lead_id != None).all()]
+    rm_ids = [row[0] for row in db.query(LoanDetails.Collection_relationship_manager_id.distinct()).filter(LoanDetails.Collection_relationship_manager_id != None).all()]
+    
+    # Get names from users table based on the IDs
+    team_leads = [u.name for u in db.query(User).filter(User.id.in_(team_lead_ids))]
+    rms = [u.name for u in db.query(User).filter(User.id.in_(rm_ids))]
     demand_num = [str(row[0]) for row in db.query(PaymentDetails.demand_num.distinct()).filter(PaymentDetails.demand_num != None).all()]  # 🎯 ADDED! Unique demand numbers
 
     return {

@@ -30,7 +30,7 @@ def get_summary_status_with_filters(
     RM = aliased(User)
     TL = aliased(User)
     
-    # Base query with joins
+    # Base query with joins - FIXED: Use current_team_lead_id instead of source_relationship_manager_id
     query = (
         db.query(PaymentDetails)
         .select_from(PaymentDetails)
@@ -42,6 +42,7 @@ def get_summary_status_with_filters(
         .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
         .join(TL, LoanDetails.current_team_lead_id == TL.id)
        # .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
+
         .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
     )
     
@@ -60,44 +61,86 @@ def get_summary_status_with_filters(
             pass  # Invalid emi_month format
     
     if branch:
-        query = query.filter(Branch.name == branch)
+        # Support multiple comma-separated branch names
+        branch_list = [b.strip() for b in branch.split(',') if b.strip()]
+        if branch_list:
+            query = query.filter(Branch.name.in_(branch_list))
     
     if dealer:
-        query = query.filter(Dealer.name == dealer)
+        # Support multiple comma-separated dealer names
+        dealer_list = [d.strip() for d in dealer.split(',') if d.strip()]
+        if dealer_list:
+            query = query.filter(Dealer.name.in_(dealer_list))
     
     if lender:
-        query = query.filter(Lender.name == lender)
+        # Support multiple comma-separated lender names
+        lender_list = [l.strip() for l in lender.split(',') if l.strip()]
+        if lender_list:
+            query = query.filter(Lender.name.in_(lender_list))
     
     if status:
-        query = query.filter(RepaymentStatus.repayment_status == status)
+        # Support multiple comma-separated status values
+        status_list = [s.strip() for s in status.split(',') if s.strip()]
+        if status_list:
+            query = query.filter(RepaymentStatus.repayment_status.in_(status_list))
     
     if rm_name:
-        query = query.filter(RM.name == rm_name)
+        # Support multiple comma-separated RM names
+        rm_list = [r.strip() for r in rm_name.split(',') if r.strip()]
+        if rm_list:
+            query = query.filter(RM.name.in_(rm_list))
     
     if tl_name:
-        query = query.filter(TL.name == tl_name)
+        # Support multiple comma-separated TL names
+        tl_list = [t.strip() for t in tl_name.split(',') if t.strip()]
+        if tl_list:
+            query = query.filter(TL.name.in_(tl_list))
     
     if repayment_id:
-        query = query.filter(PaymentDetails.id == int(repayment_id))
+        # Support multiple comma-separated repayment IDs
+        repayment_list = [r.strip() for r in repayment_id.split(',') if r.strip()]
+        if repayment_list:
+            try:
+                repayment_ids = [int(r) for r in repayment_list]
+                query = query.filter(PaymentDetails.id.in_(repayment_ids))
+            except ValueError:
+                # If any value is not a valid integer, skip this filter
+                pass
     
     if demand_num:
-        query = query.filter(PaymentDetails.demand_num == demand_num)
+        # Support multiple comma-separated demand numbers
+        demand_list = [d.strip() for d in demand_num.split(',') if d.strip()]
+        if demand_list:
+            try:
+                demand_nums = [int(d) for d in demand_list]
+                query = query.filter(PaymentDetails.demand_num.in_(demand_nums))
+            except ValueError:
+                # If any value is not a valid integer, skip this filter
+                pass
     
     # PTP date filtering
     if ptp_date_filter:
-        today = date.today()
-        tomorrow = today + timedelta(days=1)
-        
-        if ptp_date_filter == "overdue":
-            query = query.filter(PaymentDetails.ptp_date < today)
-        elif ptp_date_filter == "today":
-            query = query.filter(func.date(PaymentDetails.ptp_date) == today)
-        elif ptp_date_filter == "tomorrow":
-            query = query.filter(func.date(PaymentDetails.ptp_date) == tomorrow)
-        elif ptp_date_filter == "future":
-            query = query.filter(PaymentDetails.ptp_date > tomorrow)
-        elif ptp_date_filter == "no_ptp":
-            query = query.filter(PaymentDetails.ptp_date.is_(None))
+        # Support multiple comma-separated PTP date filters
+        ptp_list = [p.strip() for p in ptp_date_filter.split(',') if p.strip()]
+        if ptp_list:
+            today = date.today()
+            tomorrow = today + timedelta(days=1)
+            
+            ptp_conditions = []
+            for ptp_filter in ptp_list:
+                if ptp_filter == "overdue":
+                    ptp_conditions.append(PaymentDetails.ptp_date < today)
+                elif ptp_filter == "today":
+                    ptp_conditions.append(func.date(PaymentDetails.ptp_date) == today)
+                elif ptp_filter == "tomorrow":
+                    ptp_conditions.append(func.date(PaymentDetails.ptp_date) == tomorrow)
+                elif ptp_filter == "future":
+                    ptp_conditions.append(PaymentDetails.ptp_date > tomorrow)
+                elif ptp_filter == "no_ptp":
+                    ptp_conditions.append(PaymentDetails.ptp_date.is_(None))
+            
+            if ptp_conditions:
+                query = query.filter(or_(*ptp_conditions))
     
     # Get filtered results
     results = (
