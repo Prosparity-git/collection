@@ -27,10 +27,7 @@ app/core/config.py
 *.sqlite
 *.sqlite3
 
-# Docker
-Dockerfile
-docker-compose.yml
-docker-compose.yaml
+
 
 # IDE
 .vscode/

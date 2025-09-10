@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
-from app.models.audit_payment_details import AuditPaymentDetails
+from app.models.activity_log import ActivityLog
+from app.models.field_types import FieldTypes
 from app.models.repayment_status import RepaymentStatus
+from app.models.demand_calling import DemandCalling
 from app.models.user import User
 from app.schemas.recent_activity import RecentActivityItem, ActivityTypeEnum
 from datetime import datetime, timedelta
@@ -15,7 +17,7 @@ def get_recent_activity(
     days_back: int = 30
 ) -> List[RecentActivityItem]:
     """
-    Get recent activity for the 4 main things:
+    Get recent activity from activity_log table for the 4 main things:
     1. Repayment Status changes
     2. Demand Calling Status changes  
     3. PTP Date changes
@@ -24,101 +26,76 @@ def get_recent_activity(
     activities = []
     cutoff_date = datetime.now() - timedelta(days=days_back)
     
-    # Query audit payment details
-    query = db.query(AuditPaymentDetails).filter(
-        AuditPaymentDetails.action_timestamp >= cutoff_date
+    # Query activity_log table with field_types join
+    query = db.query(
+        ActivityLog,
+        FieldTypes.field_name
+    ).join(
+        FieldTypes, ActivityLog.field_type_id == FieldTypes.id
+    ).filter(
+        ActivityLog.created_at >= cutoff_date
     )
     
     if loan_id:
-        # loan_application_id is the loan_id in the audit table
-        query = query.filter(AuditPaymentDetails.loan_application_id == loan_id)
+        query = query.filter(ActivityLog.loan_application_id == loan_id)
     
     if repayment_id:
-        # Filter by payment_id directly
-        query = query.filter(AuditPaymentDetails.payment_id == repayment_id)
+        query = query.filter(ActivityLog.payment_id == repayment_id)
     
-    audits = query.order_by(desc(AuditPaymentDetails.action_timestamp)).limit(limit * 2).all()
+    # Get recent activities
+    results = query.order_by(desc(ActivityLog.created_at)).limit(limit).all()
     
-    for audit in audits:
-        if audit.old_data and audit.new_data:
-            # 1. Check Repayment Status changes
-            old_status_id = audit.old_data.get('Repayment_status_id')
-            new_status_id = audit.new_data.get('Repayment_status_id')
-            
-            if old_status_id != new_status_id:
-                old_status = get_repayment_status_name(db, old_status_id)
-                new_status = get_repayment_status_name(db, new_status_id)
-                
-                activities.append(RecentActivityItem(
-                    id=audit.audit_id,
-                    activity_type=ActivityTypeEnum.repayment_status,
-                    from_value=old_status,
-                    to_value=new_status,
-                    changed_by=get_user_name(db, audit.changed_by),
-                    timestamp=audit.action_timestamp,
-                    loan_id=audit.loan_application_id,
-                    repayment_id=audit.payment_id
-                ))
-            
-            # 2. Check PTP Date changes
-            old_ptp_date = audit.old_data.get('ptp_date')
-            new_ptp_date = audit.new_data.get('ptp_date')
-            
-            if old_ptp_date != new_ptp_date:
-                activities.append(RecentActivityItem(
-                    id=audit.audit_id,
-                    activity_type=ActivityTypeEnum.ptp_date,
-                    from_value=old_ptp_date,
-                    to_value=new_ptp_date,
-                    changed_by=get_user_name(db, audit.changed_by),
-                    timestamp=audit.action_timestamp,
-                    loan_id=audit.loan_application_id,
-                    repayment_id=audit.payment_id
-                ))
-            
-            # 3. Check Amount Collected changes
-            old_amount = audit.old_data.get('amount_collected')
-            new_amount = audit.new_data.get('amount_collected')
-            
-            if old_amount != new_amount:
-                activities.append(RecentActivityItem(
-                    id=audit.audit_id,
-                    activity_type=ActivityTypeEnum.amount_collected,
-                    from_value=str(old_amount) if old_amount else None,
-                    to_value=str(new_amount) if new_amount else None,
-                    changed_by=get_user_name(db, audit.changed_by),
-                    timestamp=audit.action_timestamp,
-                    loan_id=audit.loan_application_id,
-                    repayment_id=audit.payment_id
-                ))
+    for log, field_name in results:
+        # Get actual status names based on field type
+        old_value, new_value = get_status_names(db, field_name, log.previous_value, log.new_value)
+        
+        activities.append(RecentActivityItem(
+            id=log.id,
+            activity_type=map_field_name_to_activity_type(field_name),
+            from_value=old_value,
+            to_value=new_value,
+            changed_by=get_user_name(db, log.changed_by_user_id),
+            timestamp=log.created_at,
+            loan_id=log.loan_application_id,
+            repayment_id=log.payment_id
+        ))
     
-    # Sort by timestamp and return top results
-    activities.sort(key=lambda x: x.timestamp, reverse=True)
-    return activities[:limit]
+    return activities
 
-def get_repayment_status_name(db: Session, status_id: Optional[int]) -> Optional[str]:
-    """Get repayment status name by ID"""
-    if not status_id:
-        return None
+def get_status_names(db: Session, field_name: str, old_id: str, new_id: str) -> tuple:
+    """Get actual status names from IDs"""
+    if field_name == 'repayment_status':
+        old_status = db.query(RepaymentStatus).filter(RepaymentStatus.id == int(old_id)).first() if old_id else None
+        new_status = db.query(RepaymentStatus).filter(RepaymentStatus.id == int(new_id)).first() if new_id else None
+        return (old_status.repayment_status if old_status else old_id, 
+                new_status.repayment_status if new_status else new_id)
     
-    status = db.query(RepaymentStatus).filter(RepaymentStatus.id == status_id).first()
-    return status.repayment_status if status else None
+    elif field_name == 'demand_calling_status':
+        old_status = db.query(DemandCalling).filter(DemandCalling.id == int(old_id)).first() if old_id else None
+        new_status = db.query(DemandCalling).filter(DemandCalling.id == int(new_id)).first() if new_id else None
+        return (old_status.demand_calling_status if old_status else old_id,
+                new_status.demand_calling_status if new_status else new_id)
+    
+    else:
+        # For other fields, return as is
+        return (old_id, new_id)
 
-def get_user_name(db: Session, changed_by: Optional[str]) -> str:
-    """Get user name by ID or return the changed_by value if it's already a name"""
-    if not changed_by:
+def map_field_name_to_activity_type(field_name: str) -> Optional[ActivityTypeEnum]:
+    """Map field_name to ActivityTypeEnum"""
+    mapping = {
+        'repayment_status': ActivityTypeEnum.repayment_status,
+        'amount_collected': ActivityTypeEnum.amount_collected,
+        'ptp_date': ActivityTypeEnum.ptp_date,
+        'demand_calling_status': ActivityTypeEnum.demand_calling_status,
+    }
+    return mapping.get(field_name)
+
+def get_user_name(db: Session, user_id: Optional[int]) -> str:
+    """Get user name by ID"""
+    if not user_id:
         return "System"
     
-    # If changed_by is already a name (not a number), return it
-    if not changed_by.isdigit():
-        return changed_by
-    
-    # If changed_by is a number (user ID), look up the user
-    try:
-        user_id = int(changed_by)
-        user = db.query(User).filter(User.id == user_id).first()
-        return user.name if user else f"User_{user_id}"
-    except ValueError:
-        return changed_by
+    user = db.query(User).filter(User.id == user_id).first()
+    return user.name if user else f"User_{user_id}"
 
 

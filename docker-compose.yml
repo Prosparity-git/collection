@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  backend:
+    build: .
+    container_name: fastapi-prod
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - prod.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# If you want MySQL inside Docker, uncomment this section
+#  db:
+#    image: mysql:8
+#    container_name: mysql-dev
+#    restart: always
+#    env_file:
+#      - dev.env
+#    environment:
+#      MYSQL_ROOT_PASSWORD: Prosapp_root#4312
+#      MYSQL_DATABASE: prosparity_db_dev
+#      MYSQL_USER: prosapp_dev
+#      MYSQL_PASSWORD: Prosapp_dev#4312
+#    ports:
+#      - "3307:3306"
+#    volumes:
+#      - mysql_data_dev:/var/lib/mysql
+
+#volumes:
+#  mysql_data_dev:

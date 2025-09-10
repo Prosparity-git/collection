@@ -17,6 +17,8 @@ from .reference import Reference
 from .audit_applicant_details import AuditApplicantDetails
 from .audit_payment_details import AuditPaymentDetails
 from .vehicle_status import VehicleStatus
+from .field_types import FieldTypes
+from .activity_log import ActivityLog
 
 # Import Base for database operations
 from app.db.base import Base 

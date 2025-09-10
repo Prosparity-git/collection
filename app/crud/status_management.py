@@ -20,12 +20,17 @@ def update_status_management(
     
     # Set user context before any database operations for audit trail
     if user_id:
-        # Get user name from user_id
+        # Get user name for audit triggers
         user = get_user_by_id(db, user_id)
         user_name = user.name if user else f"User_{user_id}"
         # Escape single quotes in user name for SQL
         escaped_user_name = user_name.replace("'", "''")
+        
+        # Set @app_user for audit triggers (expects user name)
         db.execute(text(f"SET @app_user = '{escaped_user_name}'"))
+        
+        # Set @app_user_activity for activity triggers (expects user_id format)
+        db.execute(text(f"SET @app_user_activity = 'user_id:{user_id}'"))
     
     # Find the payment record for this loan
     if status_data.repayment_id:
