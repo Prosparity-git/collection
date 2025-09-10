@@ -20,7 +20,7 @@ prod.env
 env.example
 
 # Configuration Files
-# app/core/config.py
+app/core/config.py
 
 # Database
 *.db
