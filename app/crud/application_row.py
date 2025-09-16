@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session, aliased
-from sqlalchemy import desc, func, or_, and_
+from sqlalchemy.orm import Session, aliased, joinedload
+from sqlalchemy import desc, func, or_, and_, case
 from app.models.loan_details import LoanDetails
 from app.models.applicant_details import ApplicantDetails
 from app.models.payment_details import PaymentDetails
@@ -12,7 +12,9 @@ from app.models.repayment_status import RepaymentStatus
 from app.models.calling import Calling
 from app.models.contact_calling import ContactCalling
 from app.models.ownership_type import OwnershipType  # 🎯 ADDED! For House Ownership
+from app.models.demand_calling import DemandCalling
 from datetime import date, timedelta
+from collections import defaultdict
 
 def _combine_address(address_line1, address_line2, address_line3):
     """
@@ -55,8 +57,8 @@ def get_filtered_applications(
     # Create base query fields
     base_fields = [
         ApplicantDetails.applicant_id.label("application_id"),
-        LoanDetails.loan_application_id.label("loan_id"),  # Added loan_id
-        PaymentDetails.demand_num.label("demand_num"),  # 🎯 ADDED! Repayment Number
+        LoanDetails.loan_application_id.label("loan_id"),
+        PaymentDetails.demand_num.label("demand_num"),
         ApplicantDetails.first_name,
         ApplicantDetails.last_name,
         ApplicantDetails.mobile,
@@ -70,20 +72,20 @@ def get_filtered_applications(
         Lender.name.label("lender"),
         PaymentDetails.ptp_date.label("ptp_date"),
         PaymentDetails.mode.label("payment_mode"),
-        PaymentDetails.amount_collected.label("amount_collected"),  # 🎯 ADDED! Amount collected
+        PaymentDetails.amount_collected.label("amount_collected"),
         PaymentDetails.id.label("payment_id"),
-        LoanDetails.disbursal_amount.label("loan_amount"),  # 🎯 ADDED! Loan Amount
-        LoanDetails.disbursal_date.label("disbursement_date"),  # 🎯 ADDED! Disbursement Date
-        OwnershipType.ownership_type_name.label("house_ownership"),  # 🎯 ADDED! House Ownership
-        ApplicantDetails.latitude.label("latitude"),  # 🎯 ADDED! Latitude coordinate
-        ApplicantDetails.longitude.label("longitude"),  # 🎯 ADDED! Longitude coordinate
-        ApplicantDetails.address_line1.label("address_line1"),  # 🎯 ADDED! Address line 1
-        ApplicantDetails.address_line2.label("address_line2"),  # 🎯 ADDED! Address line 2
-        ApplicantDetails.address_line3.label("address_line3")  # 🎯 ADDED! Address line 3
+        LoanDetails.disbursal_amount.label("loan_amount"),
+        LoanDetails.disbursal_date.label("disbursement_date"),
+        OwnershipType.ownership_type_name.label("house_ownership"),
+        ApplicantDetails.latitude.label("latitude"),
+        ApplicantDetails.longitude.label("longitude"),
+        ApplicantDetails.address_line1.label("address_line1"),
+        ApplicantDetails.address_line2.label("address_line2"),
+        ApplicantDetails.address_line3.label("address_line3")
     ]
     
     if emi_month:
-        # 🎯 FIXED! If emi_month is provided, get that specific month's payment
+        # Direct month filter - much faster than subquery
         query = (
             db.query(*base_fields)
             .select_from(LoanDetails)
@@ -91,7 +93,7 @@ def get_filtered_applications(
             .join(
                 PaymentDetails,
                 (PaymentDetails.loan_application_id == LoanDetails.loan_application_id) &
-                (func.date_format(PaymentDetails.demand_date, '%b-%y') == emi_month)  # 🎯 Direct month filter
+                (func.date_format(PaymentDetails.demand_date, '%b-%y') == emi_month)
             )
             .join(Branch, ApplicantDetails.branch_id == Branch.id)
             .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
@@ -102,13 +104,17 @@ def get_filtered_applications(
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
         )
     else:
-        # If no emi_month, use current logic (latest payment)
-        latest_payment_subq = (
+        # Optimized latest payment query using window function instead of subquery
+        latest_payment_cte = (
             db.query(
                 PaymentDetails.loan_application_id,
-                func.max(PaymentDetails.demand_date).label("max_demand_date")
+                PaymentDetails.id,
+                PaymentDetails.demand_date,
+                func.row_number().over(
+                    partition_by=PaymentDetails.loan_application_id,
+                    order_by=PaymentDetails.demand_date.desc()
+                ).label('rn')
             )
-            .group_by(PaymentDetails.loan_application_id)
             .subquery()
         )
         
@@ -117,13 +123,12 @@ def get_filtered_applications(
             .select_from(LoanDetails)
             .join(ApplicantDetails, LoanDetails.applicant_id == ApplicantDetails.applicant_id)
             .join(
-                latest_payment_subq,
-                LoanDetails.loan_application_id == latest_payment_subq.c.loan_application_id
+                latest_payment_cte,
+                LoanDetails.loan_application_id == latest_payment_cte.c.loan_application_id
             )
             .join(
                 PaymentDetails,
-                (PaymentDetails.loan_application_id == latest_payment_subq.c.loan_application_id) &
-                (PaymentDetails.demand_date == latest_payment_subq.c.max_demand_date)
+                PaymentDetails.id == latest_payment_cte.c.id
             )
             .join(Branch, ApplicantDetails.branch_id == Branch.id)
             .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
@@ -132,22 +137,20 @@ def get_filtered_applications(
             .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
             .outerjoin(CurrentTL, LoanDetails.current_team_lead_id == CurrentTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
+            .filter(latest_payment_cte.c.rn == 1)
         )
 
-    # Apply essential filters only
+    # Apply filters efficiently
     if loan_id:
-        # Support multiple comma-separated loan IDs
         loan_list = [l.strip() for l in loan_id.split(',') if l.strip()]
         if loan_list:
             try:
                 loan_ids = [int(l) for l in loan_list]
                 query = query.filter(LoanDetails.loan_application_id.in_(loan_ids))
             except ValueError:
-                # If any value is not a valid integer, skip this filter
                 pass
     
     if search:
-        # Support multiple comma-separated search terms
         search_terms = [s.strip() for s in search.split(',') if s.strip()]
         if search_terms:
             search_conditions = []
@@ -161,68 +164,54 @@ def get_filtered_applications(
             query = query.filter(or_(*search_conditions))
     
     if branch:
-        # Support multiple comma-separated branch names
         branch_list = [b.strip() for b in branch.split(',') if b.strip()]
         if branch_list:
             query = query.filter(Branch.name.in_(branch_list))
     
     if dealer:
-        # Support multiple comma-separated dealer names
         dealer_list = [d.strip() for d in dealer.split(',') if d.strip()]
         if dealer_list:
             query = query.filter(Dealer.name.in_(dealer_list))
     
     if lender:
-        # Support multiple comma-separated lender names
         lender_list = [l.strip() for l in lender.split(',') if l.strip()]
         if lender_list:
             query = query.filter(Lender.name.in_(lender_list))
     
     if status:
-        # Support multiple comma-separated status values
         status_list = [s.strip() for s in status.split(',') if s.strip()]
         if status_list:
             query = query.filter(RepaymentStatus.repayment_status.in_(status_list))
     
     if rm_name:
-        # Support multiple comma-separated RM names
         rm_list = [r.strip() for r in rm_name.split(',') if r.strip()]
         if rm_list:
             query = query.filter(RM.name.in_(rm_list))
     
     if tl_name:
-        # Support multiple comma-separated TL names
         tl_list = [t.strip() for t in tl_name.split(',') if t.strip()]
         if tl_list:
             query = query.filter(CurrentTL.name.in_(tl_list))
     
-    # Repayment ID filtering
     if repayment_id:
-        # Support multiple comma-separated repayment IDs
         repayment_list = [r.strip() for r in repayment_id.split(',') if r.strip()]
         if repayment_list:
             try:
                 repayment_ids = [int(r) for r in repayment_list]
                 query = query.filter(PaymentDetails.id.in_(repayment_ids))
             except ValueError:
-                # If any value is not a valid integer, skip this filter
                 pass
     
-    # Demand Number filtering
     if demand_num:
-        # Support multiple comma-separated demand numbers
         demand_list = [d.strip() for d in demand_num.split(',') if d.strip()]
         if demand_list:
             try:
                 demand_nums = [int(d) for d in demand_list]
                 query = query.filter(PaymentDetails.demand_num.in_(demand_nums))
             except ValueError:
-                # If any value is not a valid integer, skip this filter
                 pass
     
-    # PTP date filtering
     if ptp_date_filter:
-        # Support multiple comma-separated PTP date filters
         ptp_list = [p.strip() for p in ptp_date_filter.split(',') if p.strip()]
         if ptp_list:
             today = date.today()
@@ -244,81 +233,117 @@ def get_filtered_applications(
             if ptp_conditions:
                 query = query.filter(or_(*ptp_conditions))
     
-    # 🎯 ADDED! Alphabetical ordering by Applicant Name (First Name, then Last Name)
+    # Order by applicant name
     query = query.order_by(ApplicantDetails.first_name.asc(), ApplicantDetails.last_name.asc())
     
-    # FIXED: Count payment records instead of loan records
+    # Get total count efficiently
     total = query.with_entities(PaymentDetails.id).count()
+    
+    # Get paginated results
+    rows = query.offset(offset).limit(limit).all()
+    
+    if not rows:
+        return {"total": total, "results": []}
+    
+    # Extract payment IDs for batch queries
+    payment_ids = [str(row.payment_id) for row in rows]
+    
+    # Batch fetch comments - eliminates N+1 queries
+    comments_query = (
+        db.query(Comments.repayment_id, Comments.comment)
+        .filter(
+            and_(
+                Comments.repayment_id.in_(payment_ids),
+                Comments.comment_type == 1
+            )
+        )
+        .order_by(Comments.repayment_id, Comments.commented_at.desc())
+        .all()
+    )
+    
+    # Group comments by repayment_id
+    comments_by_payment = defaultdict(list)
+    for comment in comments_query:
+        comments_by_payment[comment.repayment_id].append(comment.comment)
+    
+    # Batch fetch calling statuses - eliminates N+1 queries
+    calling_query = (
+        db.query(
+            Calling.repayment_id,
+            Calling.contact_type,
+            ContactCalling.contact_calling_status
+        )
+        .join(ContactCalling, Calling.status_id == ContactCalling.id)
+        .filter(
+            and_(
+                Calling.repayment_id.in_(payment_ids),
+                Calling.Calling_id == 1,  # Contact calling only
+                Calling.contact_type.in_([1, 2, 3, 4])
+            )
+        )
+        .order_by(Calling.repayment_id, Calling.contact_type, Calling.created_at.desc())
+        .all()
+    )
+    
+    # Group calling statuses by repayment_id and contact_type
+    calling_by_payment = defaultdict(lambda: {
+        "applicant": "Not Called",
+        "co_applicant": "Not Called", 
+        "guarantor": "Not Called",
+        "reference": "Not Called"
+    })
+    
+    # Track latest status for each contact type per payment
+    seen_combinations = set()
+    for calling in calling_query:
+        key = (calling.repayment_id, calling.contact_type)
+        if key not in seen_combinations:
+            seen_combinations.add(key)
+            if calling.contact_type == 1:
+                calling_by_payment[calling.repayment_id]["applicant"] = calling.contact_calling_status
+            elif calling.contact_type == 2:
+                calling_by_payment[calling.repayment_id]["co_applicant"] = calling.contact_calling_status
+            elif calling.contact_type == 3:
+                calling_by_payment[calling.repayment_id]["guarantor"] = calling.contact_calling_status
+            elif calling.contact_type == 4:
+                calling_by_payment[calling.repayment_id]["reference"] = calling.contact_calling_status
+    
+    # Batch fetch demand calling statuses
+    demand_calling_query = (
+        db.query(
+            Calling.repayment_id,
+            DemandCalling.demand_calling_status
+        )
+        .join(DemandCalling, Calling.status_id == DemandCalling.id)
+        .filter(
+            and_(
+                Calling.repayment_id.in_(payment_ids),
+                Calling.Calling_id == 2,  # Demand calling
+                Calling.contact_type == 1
+            )
+        )
+        .order_by(Calling.repayment_id, Calling.created_at.desc())
+        .all()
+    )
+    
+    # Group demand calling statuses by repayment_id
+    demand_calling_by_payment = {}
+    seen_demand = set()
+    for demand in demand_calling_query:
+        if demand.repayment_id not in seen_demand:
+            seen_demand.add(demand.repayment_id)
+            demand_calling_by_payment[demand.repayment_id] = demand.demand_calling_status
+    
+    # Build results efficiently
     results = []
-
-    for row in query.offset(offset).limit(limit).all():
-        # Get comments for this payment (only application details comments, comment_type = 1)
-        comments = db.query(Comments).filter(
-            and_(
-                Comments.repayment_id == row.payment_id,
-                Comments.comment_type == 1  # Only application details comments, not paid pending
-            )
-        ).order_by(Comments.commented_at.desc()).all()
-        comment_list = [c.comment for c in comments]
-
-        # Get calling status for ALL 4 contact types (1=applicant, 2=co-applicant, 3=guarantor, 4=reference)
-        calling_statuses = {
-            "applicant": "Not Called",      # contact_type = 1
-            "co_applicant": "Not Called",   # contact_type = 2
-            "guarantor": "Not Called",      # contact_type = 3
-            "reference": "Not Called"       # contact_type = 4
-        }
+    for row in rows:
+        payment_id_str = str(row.payment_id)
         
-        # Get latest calling records for each contact type for this payment (repayment_id)
-        for contact_type in range(1, 5):  # 1 to 4
-            latest_calling = db.query(Calling).filter(
-                and_(
-                    Calling.repayment_id == str(row.payment_id),
-                    Calling.Calling_id == 1,  # Only contact calling, not demand calling
-                    Calling.contact_type == contact_type
-                )
-            ).order_by(Calling.created_at.desc()).first()
-            
-            if latest_calling:
-                # Get contact calling status
-                contact_status = db.query(ContactCalling).filter(
-                    ContactCalling.id == latest_calling.status_id
-                ).first()
-                if contact_status:
-                    # Map contact_type number to string key
-                    if contact_type == 1:
-                        calling_statuses["applicant"] = contact_status.contact_calling_status
-                    elif contact_type == 2:
-                        calling_statuses["co_applicant"] = contact_status.contact_calling_status
-                    elif contact_type == 3:
-                        calling_statuses["guarantor"] = contact_status.contact_calling_status
-                    elif contact_type == 4:
-                        calling_statuses["reference"] = contact_status.contact_calling_status
-
-        # Get demand calling status for this payment (repayment_id)
-        demand_calling_status = None  # Default value
-        latest_demand_calling = db.query(Calling).filter(
-            and_(
-                Calling.repayment_id == str(row.payment_id),
-                Calling.Calling_id == 2,  # Demand calling (not contact calling)
-                Calling.contact_type == 1  # For applicant only
-            )
-        ).order_by(Calling.created_at.desc()).first()
-        
-        if latest_demand_calling:
-            # Get demand calling status from demand_calling table (not contact_calling)
-            from app.models.demand_calling import DemandCalling
-            demand_status = db.query(DemandCalling).filter(
-                DemandCalling.id == latest_demand_calling.status_id
-            ).first()
-            if demand_status:
-                demand_calling_status = demand_status.demand_calling_status
-
         results.append({
             "application_id": str(row.application_id),
-            "loan_id": row.loan_id, # Added loan_id to response
-            "payment_id": row.payment_id,  # 🎯 ADDED! This is the repayment_id for comments
-            "demand_num": str(row.demand_num) if row.demand_num else None,  # 🎯 ADDED! Repayment Number (converted to string)
+            "loan_id": row.loan_id,
+            "payment_id": row.payment_id,
+            "demand_num": str(row.demand_num) if row.demand_num else None,
             "applicant_name": f"{row.first_name or ''} {row.last_name or ''}".strip(),
             "mobile": str(row.mobile) if row.mobile else None,
             "emi_amount": float(row.emi_amount) if row.emi_amount else None,
@@ -330,17 +355,17 @@ def get_filtered_applications(
             "dealer": row.dealer,
             "lender": row.lender,
             "ptp_date": row.ptp_date.strftime('%y-%m-%d') if row.ptp_date else None,
-            "calling_statuses": calling_statuses,  # All 4 contact types calling status
-            "demand_calling_status": demand_calling_status,  # 🎯 ADDED! Demand calling status
-            "payment_mode": row.payment_mode,      # Payment mode separate
-            "amount_collected": float(row.amount_collected) if row.amount_collected else None,  # 🎯 ADDED! Amount collected
-            "loan_amount": float(row.loan_amount) if row.loan_amount else None,  # 🎯 ADDED! Loan Amount
-            "disbursement_date": row.disbursement_date.strftime('%Y-%m-%d') if row.disbursement_date else None,  # 🎯 ADDED! Disbursement Date
-            "house_ownership": row.house_ownership,  # 🎯 ADDED! House Ownership
-            "latitude": float(row.latitude) if row.latitude else None,  # 🎯 ADDED! Latitude coordinate
-            "longitude": float(row.longitude) if row.longitude else None,  # 🎯 ADDED! Longitude coordinate
-            "address": _combine_address(row.address_line1, row.address_line2, row.address_line3),  # 🎯 ADDED! Combined address
-            "comments": comment_list
+            "calling_statuses": calling_by_payment[payment_id_str],
+            "demand_calling_status": demand_calling_by_payment.get(payment_id_str),
+            "payment_mode": row.payment_mode,
+            "amount_collected": float(row.amount_collected) if row.amount_collected else None,
+            "loan_amount": float(row.loan_amount) if row.loan_amount else None,
+            "disbursement_date": row.disbursement_date.strftime('%Y-%m-%d') if row.disbursement_date else None,
+            "house_ownership": row.house_ownership,
+            "latitude": float(row.latitude) if row.latitude else None,
+            "longitude": float(row.longitude) if row.longitude else None,
+            "address": _combine_address(row.address_line1, row.address_line2, row.address_line3),
+            "comments": comments_by_payment[payment_id_str]
         })
 
     return {
