@@ -29,6 +29,9 @@ class ApplicationItem(BaseModel):
     loan_amount: Optional[float] = None  # 🎯 ADDED! Loan Amount
     disbursement_date: Optional[str] = None  # 🎯 ADDED! Disbursement Date  
     house_ownership: Optional[str] = None  # 🎯 ADDED! House Ownership
+    latitude: Optional[float] = None  # 🎯 ADDED! Latitude coordinate
+    longitude: Optional[float] = None  # 🎯 ADDED! Longitude coordinate
+    address: Optional[str] = None  # 🎯 ADDED! Combined address field
     comments: List[str] = []
 
 class ApplicationFilters(BaseModel):

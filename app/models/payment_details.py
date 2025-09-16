@@ -26,4 +26,5 @@ class PaymentDetails(Base):
 
     # Relationships - now properly defined with foreign keys
     loan_details = relationship("LoanDetails", back_populates="payment_details")
-    repayment_status = relationship("RepaymentStatus", back_populates="payment_details") 
+    repayment_status = relationship("RepaymentStatus", back_populates="payment_details")
+    field_visits = relationship("FieldVisitLocation", back_populates="payment_details") 

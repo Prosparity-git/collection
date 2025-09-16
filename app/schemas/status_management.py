@@ -25,7 +25,7 @@ class StatusManagementUpdate(BaseModel):
     calling_type: Optional[CallingTypeEnum] = CallingTypeEnum.contact_calling  # 1=contact, 2=demand
     demand_calling_status: Optional[int] = None  # ID from demand_calling table
     repayment_status: Optional[int] = None  # ID from repayment_status table
-    ptp_date: Optional[date] = None
+    ptp_date: Optional[Union[date, str]] = None  # 🎯 MODIFIED! Can be date or "clear" string
     amount_collected: Optional[float] = None
     contact_calling_status: Optional[int] = None  # ID from contact_calling table
     contact_type: Optional[ContactTypeEnum] = ContactTypeEnum.applicant  # Default to applicant

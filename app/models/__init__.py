@@ -19,6 +19,7 @@ from .audit_payment_details import AuditPaymentDetails
 from .vehicle_status import VehicleStatus
 from .field_types import FieldTypes
 from .activity_log import ActivityLog
+from .field_visit_location import FieldVisitLocation
 
 # Import Base for database operations
 from app.db.base import Base 

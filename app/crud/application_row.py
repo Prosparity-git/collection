@@ -14,6 +14,24 @@ from app.models.contact_calling import ContactCalling
 from app.models.ownership_type import OwnershipType  # 🎯 ADDED! For House Ownership
 from datetime import date, timedelta
 
+def _combine_address(address_line1, address_line2, address_line3):
+    """
+    Combine three address lines into a single formatted address string
+    """
+    address_parts = []
+    
+    if address_line1 and address_line1.strip():
+        address_parts.append(address_line1.strip())
+    
+    if address_line2 and address_line2.strip():
+        address_parts.append(address_line2.strip())
+    
+    if address_line3 and address_line3.strip():
+        address_parts.append(address_line3.strip())
+    
+    # Join with comma and space, return None if no address parts
+    return ', '.join(address_parts) if address_parts else None
+
 def get_filtered_applications(
     db: Session,
     loan_id: str = "",  # 🎯 ADDED! Filter by specific loan ID
@@ -56,7 +74,12 @@ def get_filtered_applications(
         PaymentDetails.id.label("payment_id"),
         LoanDetails.disbursal_amount.label("loan_amount"),  # 🎯 ADDED! Loan Amount
         LoanDetails.disbursal_date.label("disbursement_date"),  # 🎯 ADDED! Disbursement Date
-        OwnershipType.ownership_type_name.label("house_ownership")  # 🎯 ADDED! House Ownership
+        OwnershipType.ownership_type_name.label("house_ownership"),  # 🎯 ADDED! House Ownership
+        ApplicantDetails.latitude.label("latitude"),  # 🎯 ADDED! Latitude coordinate
+        ApplicantDetails.longitude.label("longitude"),  # 🎯 ADDED! Longitude coordinate
+        ApplicantDetails.address_line1.label("address_line1"),  # 🎯 ADDED! Address line 1
+        ApplicantDetails.address_line2.label("address_line2"),  # 🎯 ADDED! Address line 2
+        ApplicantDetails.address_line3.label("address_line3")  # 🎯 ADDED! Address line 3
     ]
     
     if emi_month:
@@ -314,6 +337,9 @@ def get_filtered_applications(
             "loan_amount": float(row.loan_amount) if row.loan_amount else None,  # 🎯 ADDED! Loan Amount
             "disbursement_date": row.disbursement_date.strftime('%Y-%m-%d') if row.disbursement_date else None,  # 🎯 ADDED! Disbursement Date
             "house_ownership": row.house_ownership,  # 🎯 ADDED! House Ownership
+            "latitude": float(row.latitude) if row.latitude else None,  # 🎯 ADDED! Latitude coordinate
+            "longitude": float(row.longitude) if row.longitude else None,  # 🎯 ADDED! Longitude coordinate
+            "address": _combine_address(row.address_line1, row.address_line2, row.address_line3),  # 🎯 ADDED! Combined address
             "comments": comment_list
         })
 

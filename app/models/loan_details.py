@@ -26,3 +26,4 @@ class LoanDetails(Base):
     co_applicants = relationship("CoApplicant", back_populates="loan_details")
     guarantors = relationship("Guarantor", back_populates="loan_details")
     references = relationship("Reference", back_populates="loan_details")
+    field_visits = relationship("FieldVisitLocation", back_populates="loan_details")

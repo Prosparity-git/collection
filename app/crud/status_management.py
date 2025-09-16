@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, text
 from typing import Dict, Any, Optional
+from datetime import date
 from app.models.payment_details import PaymentDetails
 from app.models.loan_details import LoanDetails
 from app.models.calling import Calling
@@ -67,9 +68,17 @@ def update_status_management(
         payment_record.repayment_status_id = status_data.repayment_status
         updated_fields.append("repayment_status")
     
+    # 🎯 MODIFIED! Handle PTP date with clear functionality
     if status_data.ptp_date is not None:
-        payment_record.ptp_date = status_data.ptp_date
-        updated_fields.append("ptp_date")
+        if isinstance(status_data.ptp_date, str) and status_data.ptp_date.lower() == "clear":
+            # Frontend explicitly wants to clear PTP date
+            payment_record.ptp_date = None
+            updated_fields.append("ptp_date_cleared")
+        elif isinstance(status_data.ptp_date, date):
+            # Frontend provided a valid date
+            payment_record.ptp_date = status_data.ptp_date
+            updated_fields.append("ptp_date")
+        # If it's neither "clear" nor a valid date, ignore it
     
     if status_data.amount_collected is not None:
         payment_record.amount_collected = status_data.amount_collected
@@ -126,13 +135,21 @@ def update_status_management(
         )
     ).order_by(Calling.created_at.desc()).first()
     
+    # 🎯 MODIFIED! Handle PTP date in response
+    response_ptp_date = None
+    if status_data.ptp_date is not None:
+        if isinstance(status_data.ptp_date, str) and status_data.ptp_date.lower() == "clear":
+            response_ptp_date = None  # Cleared
+        elif isinstance(status_data.ptp_date, date):
+            response_ptp_date = status_data.ptp_date
+    
     return {
         "loan_id": loan_id,
         "repayment_id": repayment_id,  # 🎯 ADDED! Return the repayment_id that was updated
         "calling_type": calling_type.value,  # Return the calling type used
         "demand_calling_status": status_data.demand_calling_status or (existing_demand_calling.status_id if existing_demand_calling else None),
         "repayment_status": status_data.repayment_status,
-        "ptp_date": status_data.ptp_date,
+        "ptp_date": response_ptp_date,  # 🎯 MODIFIED! Return processed PTP date
         "amount_collected": status_data.amount_collected,
         "contact_calling_status": status_data.contact_calling_status or (existing_contact_calling.status_id if existing_contact_calling else None),
         "contact_type": (status_data.contact_type or ContactTypeEnum.applicant).value,

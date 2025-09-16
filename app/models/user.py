@@ -20,4 +20,5 @@ class User(Base):
 
     # Relationships
     comments = relationship("Comments", back_populates="user")
-    calls = relationship("Calling", back_populates="caller") 
+    calls = relationship("Calling", back_populates="caller")
+    field_visits = relationship("FieldVisitLocation", back_populates="agent") 

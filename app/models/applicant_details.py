@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, String, Integer, Text, TIMESTAMP, ForeignKey, func, DECIMAL
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 #NEW MODELS WITHOUT FOREIGN KEYS
@@ -20,6 +20,8 @@ class ApplicantDetails(Base):
     branch_id = Column(Integer, ForeignKey("branch.id"))
     dealer_id = Column(Integer, ForeignKey("dealer.id"))
     fi_loaction = Column(Text)  # Fixed to match database column name
+    latitude = Column(DECIMAL(10, 8), nullable=True)
+    longitude = Column(DECIMAL(11, 8), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
