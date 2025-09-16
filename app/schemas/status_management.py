@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional, Union
 from datetime import date
 from enum import Enum
@@ -29,6 +29,24 @@ class StatusManagementUpdate(BaseModel):
     amount_collected: Optional[float] = None
     contact_calling_status: Optional[int] = None  # ID from contact_calling table
     contact_type: Optional[ContactTypeEnum] = ContactTypeEnum.applicant  # Default to applicant
+    
+    @validator('ptp_date', pre=True)
+    def parse_ptp_date(cls, v):
+        """Convert string date to date object if needed"""
+        if v is None:
+            return None
+        if isinstance(v, date):
+            return v
+        if isinstance(v, str):
+            if v.lower() == "clear":
+                return "clear"  # Keep as string for clearing
+            try:
+                # Try to parse ISO date format (YYYY-MM-DD)
+                return date.fromisoformat(v)
+            except ValueError:
+                # If parsing fails, raise validation error
+                raise ValueError(f"Invalid date format: {v}. Expected YYYY-MM-DD format or 'clear'")
+        return v
 
 class StatusManagementResponse(BaseModel):
     loan_id: str
