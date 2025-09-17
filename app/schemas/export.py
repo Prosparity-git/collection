@@ -9,6 +9,7 @@ class ExportCollectionDataRequest(BaseModel):
 
 class ExportCollectionDataResponse(BaseModel):
     applicant_id: str
+    full_name: Optional[str]
     collection_rm: Optional[str]
     collection_tl: Optional[str]
     branch: Optional[str]

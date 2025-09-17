@@ -21,6 +21,13 @@ def get_collection_export_data(db: Session, demand_month: int, demand_year: int)
     query = text("""
         SELECT 
             ad.applicant_id,
+             CONCAT(
+             COALESCE(ad.first_name, ''), 
+             ' ', 
+             COALESCE(ad.middle_name, ''), 
+             ' ', 
+             COALESCE(ad.last_name, '')
+          )  AS full_name,
             crm.name AS collection_rm,
             ctl.name AS collection_tl,
             br.name AS branch,
@@ -40,25 +47,26 @@ def get_collection_export_data(db: Session, demand_month: int, demand_year: int)
             pd.ptp_date AS latest_ptp_date,
             pd.amount_collected,
             rs.repayment_status AS collection_status,
+            
              ( SELECT GROUP_CONCAT(
-                      CONCAT(
-                        DATE_FORMAT(inner_c.created_at, '%d:%b:%Y %h:%i %p'),
-                        ' - ',
-                        COALESCE(u.name, 'Unknown'),
-                        ': ',
-                        inner_c.comment
-                      )
-                      SEPARATOR '\n'
-                    )
-               FROM (
-                  SELECT c.user_id, c.comment, c.created_at
-                  FROM comments c
-                  WHERE c.repayment_id = pd.id
-                  ORDER BY c.id DESC
-                  LIMIT 3
-               ) AS inner_c
-               LEFT JOIN users u ON u.id = inner_c.user_id
-             ) AS last_3_comments
+                       CONCAT(
+                         DATE_FORMAT(inner_c.created_at, '%d:%b:%Y %h:%i %p'),
+                         ' - ',
+                         COALESCE(u.name, 'Unknown'),
+                         ': ',
+                         inner_c.comment
+                       )
+                       SEPARATOR '\n'
+                     )
+                FROM (
+                   SELECT c.user_id, c.comment, c.created_at
+                   FROM comments c
+                   WHERE c.repayment_id = pd.id
+                   ORDER BY c.id DESC
+                   LIMIT 3
+                ) AS inner_c
+                LEFT JOIN users u ON u.id = inner_c.user_id
+              ) AS last_3_comments
         FROM
             payment_details AS pd
                 LEFT JOIN
