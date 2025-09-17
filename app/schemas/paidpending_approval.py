@@ -10,7 +10,6 @@ class PaidPendingApprovalRequest(BaseModel):
     loan_id: str
     repayment_id: str  # 🎯 CHANGED! From demand_date to repayment_id
     action: ApprovalActionEnum  # accept or reject
-    user_id: int  # Who is approving/rejecting
     comments: Optional[str] = None  # Optional comments for rejection
 
 class PaidPendingApprovalResponse(BaseModel):

@@ -171,13 +171,17 @@ def approve_reject_paidpending(
     Workflow:
     1. RM selects "paidpending" → Goes to approval
     2. Approver can Accept or Reject
-    3. If Accept → Status becomes "Paid"
+    3. If Accept → Status becomes "Paid" and payment_date is set to current date
     4. If Reject → 
        - If amount exists → Status becomes "Partially Paid"
        - If no amount → Status becomes "Paid Rejected"
     """
     try:
-        result = process_paidpending_approval(db=db, approval_data=approval_data)
+        result = process_paidpending_approval(
+            db=db, 
+            approval_data=approval_data,
+            current_user_id=current_user["id"]  # Pass current logged-in user ID
+        )
         return result
         
     except ValueError as e:
