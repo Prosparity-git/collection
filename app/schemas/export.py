@@ -12,6 +12,8 @@ class ExportCollectionDataResponse(BaseModel):
     full_name: Optional[str]
     collection_rm: Optional[str]
     collection_tl: Optional[str]
+    source_rm: Optional[str]
+    source_tl: Optional[str]
     branch: Optional[str]
     dealer: Optional[str]
     lender: Optional[str]

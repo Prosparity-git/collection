@@ -30,6 +30,8 @@ def get_collection_export_data(db: Session, demand_month: int, demand_year: int)
           )  AS full_name,
             crm.name AS collection_rm,
             ctl.name AS collection_tl,
+            srm.name as source_rm,
+            stl.name as source_tl,
             br.name AS branch,
             dl.name AS dealer,
             l.name AS lender,
@@ -78,6 +80,10 @@ def get_collection_export_data(db: Session, demand_month: int, demand_year: int)
                 LEFT JOIN
             users AS ctl ON ctl.id = ld.current_team_lead_id
                 LEFT JOIN
+            users AS srm ON srm.id = ld.source_relationship_manager_id
+                LEFT JOIN
+            users AS stl ON stl.id = ld.source_team_lead_id
+                LEFT JOIN
             branch AS br ON br.id = ad.branch_id
                 LEFT JOIN
             dealer AS dl ON dl.id = ad.dealer_id
@@ -92,7 +98,7 @@ def get_collection_export_data(db: Session, demand_month: int, demand_year: int)
                 LEFT JOIN
             repayment_status AS rs ON rs.id = pd.Repayment_status_id
         WHERE
-            pd.demand_month = :demand_month AND pd.demand_year = :demand_year
+            demand_month = :demand_month AND demand_year = :demand_year
     """)
     
     result = db.execute(query, {"demand_month": demand_month, "demand_year": demand_year})
