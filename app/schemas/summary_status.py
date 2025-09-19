@@ -21,4 +21,5 @@ class SummaryStatusResponse(BaseModel):
     paid: int
     foreclose: int
     paid_pending_approval: int
-    paid_rejected: int 
+    paid_rejected: int
+    overdue_paid: int 

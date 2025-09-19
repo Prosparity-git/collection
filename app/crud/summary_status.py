@@ -82,7 +82,32 @@ def get_summary_status_with_filters(
         # Support multiple comma-separated status values
         status_list = [s.strip() for s in status.split(',') if s.strip()]
         if status_list:
-            query = query.filter(RepaymentStatus.repayment_status.in_(status_list))
+            # Handle "Overdue Paid" as a special case
+            if "Overdue Paid" in status_list:
+                # Remove "Overdue Paid" from the list for regular status filtering
+                regular_statuses = [s for s in status_list if s != "Overdue Paid"]
+                
+                # Create conditions for overdue paid: repayment_status_id = 3 AND payment_date > demand_date
+                overdue_paid_condition = and_(
+                    PaymentDetails.repayment_status_id == 3,  # Paid status
+                    PaymentDetails.payment_date.isnot(None),
+                    func.date(PaymentDetails.payment_date) > func.date(PaymentDetails.demand_date)
+                )
+                
+                if regular_statuses:
+                    # Combine regular statuses with overdue paid condition
+                    query = query.filter(
+                        or_(
+                            RepaymentStatus.repayment_status.in_(regular_statuses),
+                            overdue_paid_condition
+                        )
+                    )
+                else:
+                    # Only overdue paid condition
+                    query = query.filter(overdue_paid_condition)
+            else:
+                # Regular status filtering
+                query = query.filter(RepaymentStatus.repayment_status.in_(status_list))
     
     if rm_name:
         # Support multiple comma-separated RM names
@@ -158,7 +183,8 @@ def get_summary_status_with_filters(
         'paid': 0,
         'foreclose': 0,
         'paid_pending_approval': 0,
-        'paid_rejected': 0
+        'paid_rejected': 0,
+        'overdue_paid': 0
     }
     
     # Status mapping to exact fields
@@ -179,6 +205,19 @@ def get_summary_status_with_filters(
             if key and key in summary:
                 summary[key] += count
             summary['total'] += count
+    
+    # Calculate overdue_paid: Payments with repayment_status_id = 3 (Paid) 
+    # AND payment_date > demand_date
+    overdue_paid_query = query.filter(
+        and_(
+            PaymentDetails.repayment_status_id == 3,  # Paid status
+            PaymentDetails.payment_date.isnot(None),
+            func.date(PaymentDetails.payment_date) > func.date(PaymentDetails.demand_date)
+        )
+    )
+    
+    overdue_paid_count = overdue_paid_query.count()
+    summary['overdue_paid'] = overdue_paid_count
     
     return summary
 

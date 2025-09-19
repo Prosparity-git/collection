@@ -36,6 +36,7 @@ def summary_status_route(
     - foreclose: Foreclosed
     - paid_pending_approval: Paid but pending approval
     - paid_rejected: Paid but rejected
+    - overdue_paid: Payments that were paid after demand date
     """
     return get_summary_status_with_filters(
         db=db,
