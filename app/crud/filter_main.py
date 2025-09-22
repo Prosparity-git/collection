@@ -62,6 +62,7 @@ def filter_options(db: Session):
     dealers = [d.name for d in db.query(Dealer).all()]
     lenders = [l.name for l in db.query(Lender).all()]
     statuses = [r.repayment_status for r in db.query(RepaymentStatus).all()]
+    statuses.append("Overdue Paid")
     vehicle_statuses = [v.vehicle_status for v in db.query(VehicleStatus).all()]
     # Get distinct TL and RM IDs from loan_details table
     team_lead_ids = [row[0] for row in db.query(LoanDetails.current_team_lead_id.distinct()).filter(LoanDetails.current_team_lead_id != None).all()]
