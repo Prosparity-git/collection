@@ -3,11 +3,11 @@ from typing import Optional
 
 class Settings:
     # Database Configuration for Server
-    db_user = os.getenv("DB_USER", "root")
-    db_password = os.getenv("DB_PASSWORD", "Prosapp_root#4312")
-    db_host = os.getenv("DB_HOST", "13.203.110.46")
+    db_user = os.getenv("DB_USER", "prosapp_prod")
+    db_password = os.getenv("DB_PASSWORD", "Prosapp_prod#4312")
+    db_host = os.getenv("DB_HOST", "172.31.16.176")
     db_port = os.getenv("DB_PORT", "3306")
-    db_name = os.getenv("DB_NAME", "prosparity_db_dev")
+    db_name = os.getenv("DB_NAME", "prosparity_db_prod")
 
     # SQLAlchemy connection string
     DATABASE_URL: str = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
@@ -37,4 +37,3 @@ settings = Settings()
 
 # Print database configuration for debugging (remove in production)
 print("Database URL:", settings.DATABASE_URL)
-
