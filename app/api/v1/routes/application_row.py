@@ -17,6 +17,7 @@ def filter_applications(
     status: str = Query("", description="Filter by repayment status (comma-separated for multiple values)"),
     rm_name: str = Query("", description="Filter by RM name (comma-separated for multiple values)"),
     tl_name: str = Query("", description="Filter by Team Lead name (comma-separated for multiple values)"),
+    source_rm_name: str = Query("", description="Filter by Source RM name (comma-separated for multiple values)"),  # 🎯 ADDED!
     ptp_date_filter: str = Query("", description="Filter by PTP date: 'overdue', 'today', 'tomorrow', 'future', 'no_ptp' (comma-separated for multiple values)"),
     repayment_id: str = Query("", description="Filter by repayment ID (payment details ID) (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by repayment_id
     demand_num: str = Query("", description="Filter by demand number (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by demand_num
@@ -32,7 +33,7 @@ def filter_applications(
     - EMI month
     - Search in applicant name/ID (comma-separated for multiple terms)
     - Branch, Dealer, Lender (comma-separated for multiple values)
-    - Status, RM, Team Lead (comma-separated for multiple values)
+    - Status, RM, Team Lead, Source RM (comma-separated for multiple values)
     - PTP date categories (comma-separated for multiple values)
     - Demand number (comma-separated for multiple values)
     - Loan ID (comma-separated for multiple values)
@@ -52,6 +53,7 @@ def filter_applications(
         status=status,
         rm_name=rm_name,
         tl_name=tl_name,
+        source_rm_name=source_rm_name,  # 🎯 ADDED!
         ptp_date_filter=ptp_date_filter,
         repayment_id=repayment_id,  # 🎯 ADDED! Pass repayment_id parameter
         demand_num=demand_num,  # 🎯 ADDED! Pass demand_num parameter

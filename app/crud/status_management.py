@@ -84,6 +84,20 @@ def update_status_management(
         payment_record.amount_collected = status_data.amount_collected
         updated_fields.append("amount_collected")
     
+    # Enforce business rule: if marking as Paid(Pending Approval) (ID=6),
+    # then collected amount must be >= EMI/demand amount
+    if status_data.repayment_status == 6:  # ID=6 for "Paid(Pending Approval)"
+        current_amount_collected = (
+            float(status_data.amount_collected)
+            if status_data.amount_collected is not None
+            else float(payment_record.amount_collected or 0)
+        )
+        emi_amount = float(payment_record.demand_amount or 0)
+        if current_amount_collected < emi_amount:
+            raise ValueError(
+                f"Amount collected ({current_amount_collected}) must be >= EMI ({emi_amount}) for Paid(Pending Approval)"
+            )
+    
     # Handle calling status based on calling_type
     calling_type = status_data.calling_type or CallingTypeEnum.contact_calling
     
@@ -156,4 +170,3 @@ def update_status_management(
         "message": f"Updated: {', '.join(updated_fields)}. Calling records created: {', '.join(calling_records_created)}. Repayment ID: {repayment_id}",
         "updated_at": payment_record.updated_at.isoformat() if payment_record.updated_at else None
     }
-

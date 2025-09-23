@@ -15,6 +15,7 @@ def summary_status_route(
     status: str = Query(None, description="Filter by repayment status (comma-separated for multiple values)"),
     rm_name: str = Query(None, description="Filter by RM name (comma-separated for multiple values)"),
     tl_name: str = Query(None, description="Filter by TL name (comma-separated for multiple values)"),
+    source_rm_name: str = Query(None, description="Filter by Source RM name (comma-separated for multiple values)"),  # 🎯 ADDED!
     ptp_date_filter: str = Query(None, description="Filter by PTP date category (comma-separated for multiple values)"),
     repayment_id: str = Query(None, description="Filter by repayment ID (comma-separated for multiple values)"),
     demand_num: str = Query(None, description="Filter by demand number (comma-separated for multiple values)"),
@@ -47,6 +48,7 @@ def summary_status_route(
         status=status,
         rm_name=rm_name,
         tl_name=tl_name,
+        source_rm_name=source_rm_name,  # 🎯 ADDED!
         ptp_date_filter=ptp_date_filter,
         repayment_id=repayment_id,
         demand_num=demand_num

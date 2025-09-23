@@ -67,10 +67,12 @@ def filter_options(db: Session):
     # Get distinct TL and RM IDs from loan_details table
     team_lead_ids = [row[0] for row in db.query(LoanDetails.current_team_lead_id.distinct()).filter(LoanDetails.current_team_lead_id != None).all()]
     rm_ids = [row[0] for row in db.query(LoanDetails.Collection_relationship_manager_id.distinct()).filter(LoanDetails.Collection_relationship_manager_id != None).all()]
+    source_rms_ids = [row[0] for row in db.query(LoanDetails.source_relationship_manager_id.distinct()).filter(LoanDetails.source_relationship_manager_id != None).all()]
     
     # Get names from users table based on the IDs
     team_leads = [u.name for u in db.query(User).filter(User.id.in_(team_lead_ids))]
     rms = [u.name for u in db.query(User).filter(User.id.in_(rm_ids))]
+    source_rms = [u.name for u in db.query(User).filter(User.id.in_(source_rms_ids))]
     demand_num = [str(row[0]) for row in db.query(PaymentDetails.demand_num.distinct()).filter(PaymentDetails.demand_num != None).all()]  # 🎯 ADDED! Unique demand numbers
 
     return {
@@ -84,6 +86,7 @@ def filter_options(db: Session):
         "vehicle_statuses": vehicle_statuses,
         "team_leads": team_leads,
         "rms": rms,
+        "source_rms": source_rms,
         "demand_num": demand_num,  # 🎯 ADDED! Demand numbers for filtering
     }
     
