@@ -21,6 +21,7 @@ def get_summary_status_with_filters(
     rm_name: str = None,
     tl_name: str = None,
     source_rm_name: str = None,
+    source_tl_name: str = None,
     ptp_date_filter: str = None,
     repayment_id: str = None,
     demand_num: str = None
@@ -31,6 +32,7 @@ def get_summary_status_with_filters(
     RM = aliased(User)
     TL = aliased(User)
     SourceRM = aliased(User)
+    SourceTL = aliased(User)
     
     # Base query with joins - FIXED: Use current_team_lead_id instead of source_relationship_manager_id
     query = (
@@ -44,6 +46,7 @@ def get_summary_status_with_filters(
         .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
         .join(TL, LoanDetails.current_team_lead_id == TL.id)
         .outerjoin(SourceRM,LoanDetails.source_relationship_manager_id == SourceRM.id)
+        .outerjoin(SourceTL,LoanDetails.source_team_lead_id == SourceTL.id)
        # .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
 
         .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
@@ -129,6 +132,13 @@ def get_summary_status_with_filters(
         if source_rm_list:
             query = query.filter(SourceRM.name.in_(source_rm_list))
     
+    if source_tl_name:
+        source_tl_list = [s.strip() for s in source_tl_name.split(',') if s.strip()]
+        if source_tl_list:
+            query = query.filter(SourceTL.name.in_(source_tl_list))
+    
+
+
     if repayment_id:
         # Support multiple comma-separated repayment IDs
         repayment_list = [r.strip() for r in repayment_id.split(',') if r.strip()]

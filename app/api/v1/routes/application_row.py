@@ -18,6 +18,7 @@ def filter_applications(
     rm_name: str = Query("", description="Filter by RM name (comma-separated for multiple values)"),
     tl_name: str = Query("", description="Filter by Team Lead name (comma-separated for multiple values)"),
     source_rm_name: str = Query("", description="Filter by Source RM name (comma-separated for multiple values)"),  # 🎯 ADDED!
+    source_tl_name: str = Query("", description="Filter by Source Team Lead name (comma-separated for multiple values)"),  # 🎯 ADDED!
     ptp_date_filter: str = Query("", description="Filter by PTP date: 'overdue', 'today', 'tomorrow', 'future', 'no_ptp' (comma-separated for multiple values)"),
     repayment_id: str = Query("", description="Filter by repayment ID (payment details ID) (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by repayment_id
     demand_num: str = Query("", description="Filter by demand number (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by demand_num
@@ -54,6 +55,7 @@ def filter_applications(
         rm_name=rm_name,
         tl_name=tl_name,
         source_rm_name=source_rm_name,  # 🎯 ADDED!
+        source_tl_name=source_tl_name,  # 🎯 ADDED!
         ptp_date_filter=ptp_date_filter,
         repayment_id=repayment_id,  # 🎯 ADDED! Pass repayment_id parameter
         demand_num=demand_num,  # 🎯 ADDED! Pass demand_num parameter

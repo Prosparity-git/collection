@@ -46,6 +46,7 @@ def get_filtered_applications(
     rm_name: str = "",
     tl_name: str = "",
     source_rm_name: str = "",
+    source_tl_name: str = "",
     ptp_date_filter: str = "",
     repayment_id: str = "",  # 🎯 ADDED! Filter by repayment_id (same as payment_id)
     demand_num: str = "",  # 🎯 ADDED! Filter by demand number
@@ -55,6 +56,7 @@ def get_filtered_applications(
     RM = aliased(User)
     CurrentTL = aliased(User)
     SourceRM = aliased(User)
+    SourceTL = aliased(User)
 
     # Create base query fields
     base_fields = [
@@ -71,6 +73,7 @@ def get_filtered_applications(
         RM.name.label("rm_name"),
         CurrentTL.name.label("tl_name"),
         SourceRM.name.label("source_rm_name"),
+        SourceTL.name.label("source_tl_name"),
         Dealer.name.label("dealer"),
         Lender.name.label("lender"),
         PaymentDetails.ptp_date.label("ptp_date"),
@@ -105,6 +108,7 @@ def get_filtered_applications(
             .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
             .outerjoin(CurrentTL, LoanDetails.current_team_lead_id == CurrentTL.id)
             .outerjoin(SourceRM, LoanDetails.source_relationship_manager_id == SourceRM.id)
+            .outerjoin(SourceTL, LoanDetails.source_team_lead_id == SourceTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
         )
     else:
@@ -141,6 +145,7 @@ def get_filtered_applications(
             .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
             .outerjoin(CurrentTL, LoanDetails.current_team_lead_id == CurrentTL.id)
             .outerjoin(SourceRM, LoanDetails.source_relationship_manager_id == SourceRM.id)
+            .outerjoin(SourceTL, LoanDetails.source_team_lead_id == SourceTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
             .filter(latest_payment_cte.c.rn == 1)
         )
@@ -227,6 +232,11 @@ def get_filtered_applications(
         source_rm_list = [s.strip() for s in source_rm_name.split(',') if s.strip()]
         if source_rm_list:
             query = query.filter(SourceRM.name.in_(source_rm_list))
+    
+    if source_tl_name:
+        source_tl_list = [s.strip() for s in source_tl_name.split(',') if s.strip()]
+        if source_tl_list:
+            query = query.filter(SourceTL.name.in_(source_tl_list))
 
 
 
@@ -390,6 +400,7 @@ def get_filtered_applications(
             "rm_name": row.rm_name if row.rm_name else None,
             "tl_name": row.tl_name if row.tl_name else None,
             "source_rm_name": row.source_rm_name if row.source_rm_name else None,
+            "source_tl_name": row.source_tl_name if row.source_tl_name else None,
             "dealer": row.dealer,
             "lender": row.lender,
             "ptp_date": row.ptp_date.strftime('%y-%m-%d') if row.ptp_date else None,
