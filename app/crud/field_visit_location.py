@@ -1,11 +1,56 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, and_
 from app.models.field_visit_location import FieldVisitLocation
+from app.models.loan_details import LoanDetails
+from app.models.applicant_details import ApplicantDetails
 from app.schemas.field_visit_location import FieldVisitLocationCreate
+from app.utils.distance import is_within_radius
 from typing import List, Optional
+from fastapi import HTTPException
 
 def create_field_visit_location(db: Session, field_visit: FieldVisitLocationCreate) -> FieldVisitLocation:
-    """Create a new field visit location record"""
+    """Create a new field visit location record with location validation"""
+    
+    # Check if it's a customer visit (visit_type_id = 1)
+    if field_visit.visit_type_id == 1:  # customer_visit
+        # Get loan details to find applicant
+        loan_details = db.query(LoanDetails).filter(
+            LoanDetails.loan_application_id == field_visit.loan_application_id
+        ).first()
+        
+        if not loan_details:
+            raise HTTPException(status_code=404, detail="Loan application not found")
+        
+        # Get applicant details for home location
+        applicant = db.query(ApplicantDetails).filter(
+            ApplicantDetails.applicant_id == loan_details.applicant_id
+        ).first()
+        
+        if not applicant:
+            raise HTTPException(status_code=404, detail="Applicant details not found")
+        
+        if not applicant.latitude or not applicant.longitude:
+            raise HTTPException(
+                status_code=400, 
+                detail="Applicant home location not available. Cannot validate customer visit."
+            )
+        
+        # Check if visit location is within 100 meters of applicant's home
+        is_within_range, actual_distance = is_within_radius(
+            point1_lat=float(applicant.latitude),
+            point1_lon=float(applicant.longitude),
+            point2_lat=float(field_visit.latitude),
+            point2_lon=float(field_visit.longitude),
+            radius_meters=100
+        )
+        
+        if not is_within_range:
+            raise HTTPException(
+                status_code=400,
+                detail=f"आप ग्राहक के घर की लोकेशन से बहुत दूर हैं। दूरी: {actual_distance:.0f} मीटर। कृपया ग्राहक के घर के 100 मीटर के दायरे में जाएं।"
+            )
+    
+    # Create the field visit record
     db_field_visit = FieldVisitLocation(**field_visit.dict())
     db.add(db_field_visit)
     db.commit()
