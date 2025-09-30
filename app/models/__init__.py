@@ -20,6 +20,7 @@ from .vehicle_status import VehicleStatus
 from .field_types import FieldTypes
 from .activity_log import ActivityLog
 from .field_visit_location import FieldVisitLocation
+from .visit_types import VisitType
 
 # Import Base for database operations
 from app.db.base import Base 

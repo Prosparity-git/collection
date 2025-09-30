@@ -5,7 +5,7 @@ class Settings:
     # Database Configuration for Server
     db_user = os.getenv("DB_USER", "root")
     db_password = os.getenv("DB_PASSWORD", "Prosapp_root#4312")
-    db_host = os.getenv("DB_HOST", "13.203.110.46")
+    db_host = os.getenv("DB_HOST", "15.206.166.41")
     db_port = os.getenv("DB_PORT", "3306")
     db_name = os.getenv("DB_NAME", "prosparity_db_dev")
 
