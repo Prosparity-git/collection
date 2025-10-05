@@ -51,7 +51,7 @@ def get_password_hash(password: str) -> str:
     """
     Hash password using bcrypt
     """
-    return pwd_context.hash(password)
+    return pwd_context.hash(password[:72]) 
 
 def generate_secure_token() -> str:
     """
