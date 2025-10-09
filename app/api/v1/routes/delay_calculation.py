@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session 
 from app.core.deps import get_db, get_current_user
 from app.schemas.delay_calculation import DelayCalculationResponse
@@ -6,9 +6,9 @@ from app.crud.delay_calculation import get_delay_calculations_for_loan
 
 router = APIRouter()
 
-@router.post("/", response_model=DelayCalculationResponse)
+@router.get("/{loan_id}", response_model=DelayCalculationResponse)
 def calculate_delays_for_loan(
-    loan_id: int = Body(..., embed=True, description="Loan ID to calculate delays for all its repayments"),
+    loan_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
