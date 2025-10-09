@@ -55,18 +55,28 @@ def create_field_visit_location(db: Session, field_visit: FieldVisitLocationCrea
     db.add(db_field_visit)
     db.commit()
     db.refresh(db_field_visit)
+    
+    # Load agent relationship to include agent name in response
+    db.refresh(db_field_visit, attribute_names=['agent'])
+    
     return db_field_visit
 
 def get_all_field_visits(db: Session) -> List[FieldVisitLocation]:
-    """Get all field visit locations with visit type"""
+    """Get all field visit locations with visit type and agent"""
     return db.query(FieldVisitLocation)\
-        .options(joinedload(FieldVisitLocation.visit_type))\
+        .options(
+            joinedload(FieldVisitLocation.visit_type),
+            joinedload(FieldVisitLocation.agent)
+        )\
         .order_by(desc(FieldVisitLocation.created_at))\
         .all()
 
 def get_field_visits_by_loan(db: Session, loan_application_id: Optional[int] = None, payment_details_id: Optional[int] = None) -> List[FieldVisitLocation]:
-    """Get field visits filtered by loan_application_id and/or payment_details_id"""
-    query = db.query(FieldVisitLocation).options(joinedload(FieldVisitLocation.visit_type))
+    """Get field visits filtered by loan_application_id and/or payment_details_id with visit type and agent"""
+    query = db.query(FieldVisitLocation).options(
+        joinedload(FieldVisitLocation.visit_type),
+        joinedload(FieldVisitLocation.agent)
+    )
     
     filters = []
     if loan_application_id is not None:
@@ -80,9 +90,12 @@ def get_field_visits_by_loan(db: Session, loan_application_id: Optional[int] = N
     return query.order_by(desc(FieldVisitLocation.created_at)).all()
 
 def get_field_visits_by_type(db: Session, visit_type_id: int) -> List[FieldVisitLocation]:
-    """Get field visits by visit type"""
+    """Get field visits by visit type with agent"""
     return db.query(FieldVisitLocation)\
-        .options(joinedload(FieldVisitLocation.visit_type))\
+        .options(
+            joinedload(FieldVisitLocation.visit_type),
+            joinedload(FieldVisitLocation.agent)
+        )\
         .filter(FieldVisitLocation.visit_type_id == visit_type_id)\
         .order_by(desc(FieldVisitLocation.created_at))\
         .all()

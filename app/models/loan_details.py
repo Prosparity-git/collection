@@ -27,3 +27,4 @@ class LoanDetails(Base):
     guarantors = relationship("Guarantor", back_populates="loan_details")
     references = relationship("Reference", back_populates="loan_details")
     field_visits = relationship("FieldVisitLocation", back_populates="loan_details")
+    vehicle_repossession_statuses = relationship("VehicleRepossessionStatus", back_populates="loan_details")

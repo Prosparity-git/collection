@@ -17,6 +17,7 @@ from .reference import Reference
 from .audit_applicant_details import AuditApplicantDetails
 from .audit_payment_details import AuditPaymentDetails
 from .vehicle_status import VehicleStatus
+from .vehicle_repossession_status import VehicleRepossessionStatus
 from .field_types import FieldTypes
 from .activity_log import ActivityLog
 from .field_visit_location import FieldVisitLocation

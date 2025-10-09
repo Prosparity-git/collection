@@ -19,3 +19,8 @@ class FieldVisitLocation(Base):
     payment_details = relationship("PaymentDetails", back_populates="field_visits")
     agent = relationship("User", back_populates="field_visits")
     visit_type = relationship("VisitType", back_populates="field_visits")
+    
+    @property
+    def agent_name(self):
+        """Return agent name for API responses"""
+        return self.agent.name if self.agent else None

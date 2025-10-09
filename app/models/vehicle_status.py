@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, Enum, TIMESTAMP, func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 import enum
 
@@ -14,4 +15,7 @@ class VehicleStatus(Base):
     vehicle_status = Column(
         Enum(VehicleStatusEnum, values_callable=lambda x: [e.value for e in x]), unique=True
     )
-    created_at = Column(TIMESTAMP, server_default=func.now()) 
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    
+    # Relationships
+    vehicle_repossession_statuses = relationship("VehicleRepossessionStatus", back_populates="vehicle_status_rel") 

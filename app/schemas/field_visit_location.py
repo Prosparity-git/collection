@@ -16,6 +16,7 @@ class FieldVisitLocationCreate(FieldVisitLocationBase):
 class FieldVisitLocationResponse(FieldVisitLocationBase):
     id: int
     agent_id: int  # This will be populated by backend
+    agent_name: Optional[str] = None  # Agent name for frontend display
     created_at: datetime
     
     class Config:
@@ -31,6 +32,7 @@ class FieldVisitLocationList(BaseModel):
     id: int
     loan_application_id: int
     agent_id: int
+    agent_name: Optional[str] = None  # Agent name for frontend display
     visit_type_id: int
     visit_type_name: Optional[str] = None
     latitude: Decimal
