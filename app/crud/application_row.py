@@ -6,13 +6,13 @@ from app.models.payment_details import PaymentDetails
 from app.models.branch import Branch
 from app.models.dealer import Dealer
 from app.models.lenders import Lender
-from app.models.comments import Comments
 from app.models.user import User
 from app.models.repayment_status import RepaymentStatus
 from app.models.calling import Calling
-from app.models.contact_calling import ContactCalling
 from app.models.ownership_type import OwnershipType  # 🎯 ADDED! For House Ownership
 from app.models.demand_calling import DemandCalling
+from app.models.vehicle_repossession_status import VehicleRepossessionStatus  # 🎯 ADDED! For vehicle repossession
+from app.models.vehicle_status import VehicleStatus  # 🎯 ADDED! For vehicle status
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -87,7 +87,11 @@ def get_filtered_applications(
         ApplicantDetails.longitude.label("longitude"),
         ApplicantDetails.address_line1.label("address_line1"),
         ApplicantDetails.address_line2.label("address_line2"),
-        ApplicantDetails.address_line3.label("address_line3")
+        ApplicantDetails.address_line3.label("address_line3"),
+        VehicleStatus.vehicle_status.label("vehicle_status_name"),
+        VehicleRepossessionStatus.repossession_date.label("repossession_date"),
+        VehicleRepossessionStatus.repossession_sale_date.label("repossession_sale_date"),
+        VehicleRepossessionStatus.repossession_sale_amount.label("repossession_sale_amount")
     ]
     
     if emi_month:
@@ -110,6 +114,8 @@ def get_filtered_applications(
             .outerjoin(SourceRM, LoanDetails.source_relationship_manager_id == SourceRM.id)
             .outerjoin(SourceTL, LoanDetails.source_team_lead_id == SourceTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
+            .outerjoin(VehicleRepossessionStatus, VehicleRepossessionStatus.loan_application_id == LoanDetails.loan_application_id)
+            .outerjoin(VehicleStatus, VehicleRepossessionStatus.vehicle_status == VehicleStatus.id)
         )
     else:
         # Optimized latest payment query using window function instead of subquery
@@ -147,6 +153,8 @@ def get_filtered_applications(
             .outerjoin(SourceRM, LoanDetails.source_relationship_manager_id == SourceRM.id)
             .outerjoin(SourceTL, LoanDetails.source_team_lead_id == SourceTL.id)
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
+            .outerjoin(VehicleRepossessionStatus, VehicleRepossessionStatus.loan_application_id == LoanDetails.loan_application_id)
+            .outerjoin(VehicleStatus, VehicleRepossessionStatus.vehicle_status == VehicleStatus.id)
             .filter(latest_payment_cte.c.rn == 1)
         )
 
@@ -295,66 +303,6 @@ def get_filtered_applications(
     # Extract payment IDs for batch queries
     payment_ids = [str(row.payment_id) for row in rows]
     
-    # Batch fetch comments - eliminates N+1 queries
-    comments_query = (
-        db.query(Comments.repayment_id, Comments.comment)
-        .filter(
-            and_(
-                Comments.repayment_id.in_(payment_ids),
-                Comments.comment_type == 1
-            )
-        )
-        .order_by(Comments.repayment_id, Comments.commented_at.desc())
-        .all()
-    )
-    
-    # Group comments by repayment_id
-    comments_by_payment = defaultdict(list)
-    for comment in comments_query:
-        comments_by_payment[comment.repayment_id].append(comment.comment)
-    
-    # Batch fetch calling statuses - eliminates N+1 queries
-    calling_query = (
-        db.query(
-            Calling.repayment_id,
-            Calling.contact_type,
-            ContactCalling.contact_calling_status
-        )
-        .join(ContactCalling, Calling.status_id == ContactCalling.id)
-        .filter(
-            and_(
-                Calling.repayment_id.in_(payment_ids),
-                Calling.Calling_id == 1,  # Contact calling only
-                Calling.contact_type.in_([1, 2, 3, 4])
-            )
-        )
-        .order_by(Calling.repayment_id, Calling.contact_type, Calling.created_at.desc())
-        .all()
-    )
-    
-    # Group calling statuses by repayment_id and contact_type
-    calling_by_payment = defaultdict(lambda: {
-        "applicant": "Not Called",
-        "co_applicant": "Not Called", 
-        "guarantor": "Not Called",
-        "reference": "Not Called"
-    })
-    
-    # Track latest status for each contact type per payment
-    seen_combinations = set()
-    for calling in calling_query:
-        key = (calling.repayment_id, calling.contact_type)
-        if key not in seen_combinations:
-            seen_combinations.add(key)
-            if calling.contact_type == 1:
-                calling_by_payment[calling.repayment_id]["applicant"] = calling.contact_calling_status
-            elif calling.contact_type == 2:
-                calling_by_payment[calling.repayment_id]["co_applicant"] = calling.contact_calling_status
-            elif calling.contact_type == 3:
-                calling_by_payment[calling.repayment_id]["guarantor"] = calling.contact_calling_status
-            elif calling.contact_type == 4:
-                calling_by_payment[calling.repayment_id]["reference"] = calling.contact_calling_status
-    
     # Batch fetch demand calling statuses
     demand_calling_query = (
         db.query(
@@ -404,7 +352,6 @@ def get_filtered_applications(
             "dealer": row.dealer,
             "lender": row.lender,
             "ptp_date": row.ptp_date.strftime('%y-%m-%d') if row.ptp_date else None,
-            "calling_statuses": calling_by_payment[payment_id_str],
             "demand_calling_status": demand_calling_by_payment.get(payment_id_str),
             "payment_mode": row.payment_mode,
             "amount_collected": float(row.amount_collected) if row.amount_collected else None,
@@ -414,7 +361,10 @@ def get_filtered_applications(
             "latitude": float(row.latitude) if row.latitude else None,
             "longitude": float(row.longitude) if row.longitude else None,
             "address": _combine_address(row.address_line1, row.address_line2, row.address_line3),
-            "comments": comments_by_payment[payment_id_str]
+            "vehicle_status_name": row.vehicle_status_name.value if row.vehicle_status_name else None,
+            "repossession_date": row.repossession_date.strftime('%Y-%m-%d') if row.repossession_date else None,
+            "repossession_sale_date": row.repossession_sale_date.strftime('%Y-%m-%d') if row.repossession_sale_date else None,
+            "repossession_sale_amount": float(row.repossession_sale_amount) if row.repossession_sale_amount else None
         })
 
     return {

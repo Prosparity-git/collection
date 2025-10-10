@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 class ApplicationItem(BaseModel):
     application_id: str
@@ -17,12 +17,6 @@ class ApplicationItem(BaseModel):
     dealer: Optional[str]
     lender: Optional[str]
     ptp_date: Optional[str]
-    calling_statuses: Dict[str, str] = {  # All 4 contact types calling status
-        "applicant": "Not Called",
-        "co_applicant": "Not Called", 
-        "guarantor": "Not Called",
-        "reference": "Not Called"
-    }
     demand_calling_status: Optional[str] = None  # 🎯 ADDED! Demand calling status
     payment_mode: Optional[str] = None  # Payment mode (UPI, Cash, etc.)
     amount_collected: Optional[float] = None  # 🎯 ADDED! Amount collected from payment_details
@@ -32,7 +26,10 @@ class ApplicationItem(BaseModel):
     latitude: Optional[float] = None  # 🎯 ADDED! Latitude coordinate
     longitude: Optional[float] = None  # 🎯 ADDED! Longitude coordinate
     address: Optional[str] = None  # 🎯 ADDED! Combined address field
-    comments: List[str] = []
+    vehicle_status_name: Optional[str] = None  # 🎯 ADDED! Vehicle status (Repossessed, Need to repossess, etc.)
+    repossession_date: Optional[str] = None  # 🎯 ADDED! Date when vehicle was repossessed
+    repossession_sale_date: Optional[str] = None  # 🎯 ADDED! Date when repossessed vehicle was sold
+    repossession_sale_amount: Optional[float] = None  # 🎯 ADDED! Sale amount of repossessed vehicle
 
 class ApplicationFilters(BaseModel):
     emi_month: Optional[str] = ""

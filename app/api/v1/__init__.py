@@ -13,8 +13,7 @@ from app.api.v1.routes import (
     summary_status,
     field_visit_location,
     export,
-    delay_calculation,
-    vehicle_repossession_status
+    delay_calculation
 )
 
 api_router = APIRouter()
@@ -33,4 +32,3 @@ api_router.include_router(summary_status.router, prefix="/summary-status", tags=
 api_router.include_router(field_visit_location.router, prefix="/field-visit-location", tags=["field-visit-location"])
 api_router.include_router(export.router, prefix="/export", tags=["export"])
 api_router.include_router(delay_calculation.router, prefix="/delay-calculation", tags=["delay-calculation"])
-api_router.include_router(vehicle_repossession_status.router, prefix="/vehicle-repossession-status", tags=["vehicle-repossession-status"])
