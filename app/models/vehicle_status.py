@@ -8,6 +8,7 @@ class VehicleStatusEnum(str, enum.Enum):
     Need_to_repossess = "Need to repossess"
     Third_party = "Third party"
     None_ = "none"
+    Repossessed_sold = "Repossessed_sold"
 
 class VehicleStatus(Base):
     __tablename__ = "vehicle_status"
