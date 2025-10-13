@@ -45,13 +45,41 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify plain password against hashed password
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    # Handle None values
+    if plain_password is None or hashed_password is None:
+        return False
+    
+    # Convert to string if not already
+    plain_password_str = str(plain_password)
+    
+    # Truncate password to 72 characters to avoid bcrypt limitation
+    truncated_password = plain_password_str[:72]
+    
+    try:
+        return pwd_context.verify(truncated_password, hashed_password)
+    except Exception as e:
+        # Log the error for debugging but don't expose it
+        print(f"Password verification error: {str(e)}")
+        return False
 
 def get_password_hash(password: str) -> str:
     """
     Hash password using bcrypt
     """
-    return pwd_context.hash(password[:72]) 
+    # Ensure password is not None and is a string
+    if password is None:
+        raise ValueError("Password cannot be None")
+    
+    # Convert to string if not already
+    password_str = str(password)
+    
+    # Truncate to 72 characters to avoid bcrypt limitation
+    truncated_password = password_str[:72]
+    
+    try:
+        return pwd_context.hash(truncated_password)
+    except Exception as e:
+        raise ValueError(f"Failed to hash password: {str(e)}") 
 
 def generate_secure_token() -> str:
     """
