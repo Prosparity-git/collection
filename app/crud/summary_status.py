@@ -7,6 +7,7 @@ from app.models.dealer import Dealer
 from app.models.lenders import Lender
 from app.models.user import User
 from app.models.repayment_status import RepaymentStatus
+from app.models.dpd_monthly_snapshot import DpdMonthlySnapshot
 from sqlalchemy import func, text, and_, or_
 from fastapi import HTTPException
 from datetime import datetime, date, timedelta
@@ -24,7 +25,8 @@ def get_summary_status_with_filters(
     source_tl_name: str = None,
     ptp_date_filter: str = None,
     repayment_id: str = None,
-    demand_num: str = None
+    demand_num: str = None,
+    current_dpd_bucket: str = None
 ) -> dict:
     """
     Get summary status with filters applied - same filters as application_row API
@@ -33,6 +35,19 @@ def get_summary_status_with_filters(
     TL = aliased(User)
     SourceRM = aliased(User)
     SourceTL = aliased(User)
+    
+    # Create subquery for latest DPD bucket for each loan_application_id
+    latest_dpd_subquery = (
+        db.query(
+            DpdMonthlySnapshot.loan_application_id,
+            DpdMonthlySnapshot.dpd_bucket_name,
+            func.row_number().over(
+                partition_by=DpdMonthlySnapshot.loan_application_id,
+                order_by=DpdMonthlySnapshot.id.desc()
+            ).label('rn')
+        )
+        .subquery()
+    )
     
     # Base query with joins - FIXED: Use current_team_lead_id instead of source_relationship_manager_id
     query = (
@@ -48,7 +63,13 @@ def get_summary_status_with_filters(
         .outerjoin(SourceRM,LoanDetails.source_relationship_manager_id == SourceRM.id)
         .outerjoin(SourceTL,LoanDetails.source_team_lead_id == SourceTL.id)
        # .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
-
+        .outerjoin(
+            latest_dpd_subquery,
+            and_(
+                latest_dpd_subquery.c.loan_application_id == LoanDetails.loan_application_id,
+                latest_dpd_subquery.c.rn == 1
+            )
+        )
         .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
     )
     
@@ -160,6 +181,12 @@ def get_summary_status_with_filters(
             except ValueError:
                 # If any value is not a valid integer, skip this filter
                 pass
+    
+    if current_dpd_bucket:
+        # Support multiple comma-separated DPD bucket names
+        dpd_list = [d.strip() for d in current_dpd_bucket.split(',') if d.strip()]
+        if dpd_list:
+            query = query.filter(latest_dpd_subquery.c.dpd_bucket_name.in_(dpd_list))
     
     # PTP date filtering
     if ptp_date_filter:

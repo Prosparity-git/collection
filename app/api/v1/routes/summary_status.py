@@ -20,6 +20,7 @@ def summary_status_route(
     ptp_date_filter: str = Query(None, description="Filter by PTP date category (comma-separated for multiple values)"),
     repayment_id: str = Query(None, description="Filter by repayment ID (comma-separated for multiple values)"),
     demand_num: str = Query(None, description="Filter by demand number (comma-separated for multiple values)"),
+    current_dpd_bucket: str = Query(None, description="Filter by current DPD bucket (comma-separated for multiple values)"),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
@@ -53,5 +54,6 @@ def summary_status_route(
         source_tl_name=source_tl_name,  # 🎯 ADDED!
         ptp_date_filter=ptp_date_filter,
         repayment_id=repayment_id,
-        demand_num=demand_num
+        demand_num=demand_num,
+        current_dpd_bucket=current_dpd_bucket
     ) 

@@ -22,6 +22,7 @@ def filter_applications(
     ptp_date_filter: str = Query("", description="Filter by PTP date: 'overdue', 'today', 'tomorrow', 'future', 'no_ptp' (comma-separated for multiple values)"),
     repayment_id: str = Query("", description="Filter by repayment ID (payment details ID) (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by repayment_id
     demand_num: str = Query("", description="Filter by demand number (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by demand_num
+    current_dpd_bucket: str = Query("", description="Filter by current DPD bucket (comma-separated for multiple values)"),  # 🎯 ADDED! Filter by current DPD bucket
     offset: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=1000, description="Maximum number of records to return"),
     db: Session = Depends(get_db),
@@ -39,6 +40,7 @@ def filter_applications(
     - Demand number (comma-separated for multiple values)
     - Loan ID (comma-separated for multiple values)
     - Repayment ID (comma-separated for multiple values)
+    - Current DPD bucket (comma-separated for multiple values)
     
     All string filters now support multiple comma-separated values.
     Example: branch=Mumbai,Delhi,Bangalore
@@ -59,6 +61,7 @@ def filter_applications(
         ptp_date_filter=ptp_date_filter,
         repayment_id=repayment_id,  # 🎯 ADDED! Pass repayment_id parameter
         demand_num=demand_num,  # 🎯 ADDED! Pass demand_num parameter
+        current_dpd_bucket=current_dpd_bucket,  # 🎯 ADDED! Pass current_dpd_bucket parameter
         offset=offset,
         limit=limit
     )

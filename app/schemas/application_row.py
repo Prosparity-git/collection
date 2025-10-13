@@ -30,6 +30,7 @@ class ApplicationItem(BaseModel):
     repossession_date: Optional[str] = None  # 🎯 ADDED! Date when vehicle was repossessed
     repossession_sale_date: Optional[str] = None  # 🎯 ADDED! Date when repossessed vehicle was sold
     repossession_sale_amount: Optional[float] = None  # 🎯 ADDED! Sale amount of repossessed vehicle
+    current_dpd_bucket: Optional[str] = None  # 🎯 ADDED! Current DPD bucket from dpd_monthly_snapshot
 
 class ApplicationFilters(BaseModel):
     emi_month: Optional[str] = ""
@@ -42,6 +43,7 @@ class ApplicationFilters(BaseModel):
     tl_name: Optional[str] = ""
     ptp_date_filter: Optional[str] = ""
     repayment_id: Optional[str] = ""  # 🎯 ADDED! Filter by repayment_id
+    current_dpd_bucket: Optional[str] = ""  # 🎯 ADDED! Filter by current DPD bucket
     offset: Optional[int] = 0
     limit: Optional[int] = 20
 

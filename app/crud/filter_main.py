@@ -7,6 +7,7 @@ from app.models.vehicle_status import VehicleStatus
 from app.models.payment_details import PaymentDetails
 from app.models.user import User
 from app.models.loan_details import LoanDetails
+from app.models.dpd_monthly_snapshot import DpdMonthlySnapshot
 from datetime import date, timedelta
 
 
@@ -75,6 +76,7 @@ def filter_options(db: Session):
     source_rms = [u.name for u in db.query(User).filter(User.id.in_(source_rms_ids))]
     source_team_leads = [u.name for u in db.query(User).filter(User.id.in_(source_team_leads_ids))]
     demand_num = [str(row[0]) for row in db.query(PaymentDetails.demand_num.distinct()).filter(PaymentDetails.demand_num != None).all()]  # 🎯 ADDED! Unique demand numbers
+    dpd_buckets = [row[0] for row in db.query(DpdMonthlySnapshot.dpd_bucket_name.distinct()).filter(DpdMonthlySnapshot.dpd_bucket_name != None).all()]  # 🎯 ADDED! Distinct DPD bucket names
 
     return {
         "emi_months": emi_months,
@@ -90,6 +92,7 @@ def filter_options(db: Session):
         "source_rms": source_rms,
         "source_team_leads": source_team_leads,
         "demand_num": demand_num,  # 🎯 ADDED! Demand numbers for filtering
+        "dpd_buckets": dpd_buckets,  # 🎯 ADDED! DPD buckets for filtering
     }
     
 

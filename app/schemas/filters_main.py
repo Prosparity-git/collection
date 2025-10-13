@@ -14,3 +14,4 @@ class FiltersOptionsResponse(BaseModel):
     source_rms: List[str] 
     source_team_leads: List[str]
     demand_num: List[str]
+    dpd_buckets: List[str]

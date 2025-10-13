@@ -28,3 +28,4 @@ class LoanDetails(Base):
     references = relationship("Reference", back_populates="loan_details")
     field_visits = relationship("FieldVisitLocation", back_populates="loan_details")
     vehicle_repossession_statuses = relationship("VehicleRepossessionStatus", back_populates="loan_details")
+    dpd_snapshots = relationship("DpdMonthlySnapshot", back_populates="loan_details")

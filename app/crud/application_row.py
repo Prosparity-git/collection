@@ -13,6 +13,7 @@ from app.models.ownership_type import OwnershipType  # 🎯 ADDED! For House Own
 from app.models.demand_calling import DemandCalling
 from app.models.vehicle_repossession_status import VehicleRepossessionStatus  # 🎯 ADDED! For vehicle repossession
 from app.models.vehicle_status import VehicleStatus  # 🎯 ADDED! For vehicle status
+from app.models.dpd_monthly_snapshot import DpdMonthlySnapshot  # 🎯 ADDED! For DPD bucket
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -50,6 +51,7 @@ def get_filtered_applications(
     ptp_date_filter: str = "",
     repayment_id: str = "",  # 🎯 ADDED! Filter by repayment_id (same as payment_id)
     demand_num: str = "",  # 🎯 ADDED! Filter by demand number
+    current_dpd_bucket: str = "",  # 🎯 ADDED! Filter by current DPD bucket
     offset: int = 0, 
     limit: int = 20
 ):
@@ -57,6 +59,19 @@ def get_filtered_applications(
     CurrentTL = aliased(User)
     SourceRM = aliased(User)
     SourceTL = aliased(User)
+
+    # Create subquery for latest DPD bucket for each loan_application_id
+    latest_dpd_subquery = (
+        db.query(
+            DpdMonthlySnapshot.loan_application_id,
+            DpdMonthlySnapshot.dpd_bucket_name,
+            func.row_number().over(
+                partition_by=DpdMonthlySnapshot.loan_application_id,
+                order_by=DpdMonthlySnapshot.id.desc()
+            ).label('rn')
+        )
+        .subquery()
+    )
 
     # Create base query fields
     base_fields = [
@@ -91,7 +106,8 @@ def get_filtered_applications(
         VehicleStatus.vehicle_status.label("vehicle_status_name"),
         VehicleRepossessionStatus.repossession_date.label("repossession_date"),
         VehicleRepossessionStatus.repossession_sale_date.label("repossession_sale_date"),
-        VehicleRepossessionStatus.repossession_sale_amount.label("repossession_sale_amount")
+        VehicleRepossessionStatus.repossession_sale_amount.label("repossession_sale_amount"),
+        latest_dpd_subquery.c.dpd_bucket_name.label("current_dpd_bucket")
     ]
     
     if emi_month:
@@ -116,6 +132,13 @@ def get_filtered_applications(
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
             .outerjoin(VehicleRepossessionStatus, VehicleRepossessionStatus.loan_application_id == LoanDetails.loan_application_id)
             .outerjoin(VehicleStatus, VehicleRepossessionStatus.vehicle_status == VehicleStatus.id)
+            .outerjoin(
+                latest_dpd_subquery,
+                and_(
+                    latest_dpd_subquery.c.loan_application_id == LoanDetails.loan_application_id,
+                    latest_dpd_subquery.c.rn == 1
+                )
+            )
         )
     else:
         # Optimized latest payment query using window function instead of subquery
@@ -155,6 +178,13 @@ def get_filtered_applications(
             .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
             .outerjoin(VehicleRepossessionStatus, VehicleRepossessionStatus.loan_application_id == LoanDetails.loan_application_id)
             .outerjoin(VehicleStatus, VehicleRepossessionStatus.vehicle_status == VehicleStatus.id)
+            .outerjoin(
+                latest_dpd_subquery,
+                and_(
+                    latest_dpd_subquery.c.loan_application_id == LoanDetails.loan_application_id,
+                    latest_dpd_subquery.c.rn == 1
+                )
+            )
             .filter(latest_payment_cte.c.rn == 1)
         )
 
@@ -266,6 +296,11 @@ def get_filtered_applications(
             except ValueError:
                 pass
     
+    if current_dpd_bucket:
+        dpd_list = [d.strip() for d in current_dpd_bucket.split(',') if d.strip()]
+        if dpd_list:
+            query = query.filter(latest_dpd_subquery.c.dpd_bucket_name.in_(dpd_list))
+    
     if ptp_date_filter:
         ptp_list = [p.strip() for p in ptp_date_filter.split(',') if p.strip()]
         if ptp_list:
@@ -364,7 +399,8 @@ def get_filtered_applications(
             "vehicle_status_name": row.vehicle_status_name.value if row.vehicle_status_name else None,
             "repossession_date": row.repossession_date.strftime('%Y-%m-%d') if row.repossession_date else None,
             "repossession_sale_date": row.repossession_sale_date.strftime('%Y-%m-%d') if row.repossession_sale_date else None,
-            "repossession_sale_amount": float(row.repossession_sale_amount) if row.repossession_sale_amount else None
+            "repossession_sale_amount": float(row.repossession_sale_amount) if row.repossession_sale_amount else None,
+            "current_dpd_bucket": row.current_dpd_bucket
         })
 
     return {
