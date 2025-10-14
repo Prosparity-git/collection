@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 from app.models.payment_details import PaymentDetails
+from app.models.repayment_status import RepaymentStatus
 from datetime import date
 
 
@@ -27,6 +28,7 @@ def get_delay_calculations_for_loan(db: Session, loan_id: int):
 
     # Get payment details for this loan up to current month only
     # Filter using demand_month and demand_year OR demand_date
+    # Join with RepaymentStatus to get status name
     payments = (
         db.query(
             PaymentDetails.id.label("payment_id"),
@@ -37,8 +39,10 @@ def get_delay_calculations_for_loan(db: Session, loan_id: int):
             PaymentDetails.demand_month,
             PaymentDetails.demand_year,
             PaymentDetails.demand_amount,
-            PaymentDetails.amount_collected
+            PaymentDetails.amount_collected,
+            RepaymentStatus.repayment_status.label("status")
         )
+        .outerjoin(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
         .filter(
             PaymentDetails.loan_application_id == loan_id,
             or_(
@@ -105,7 +109,8 @@ def get_delay_calculations_for_loan(db: Session, loan_id: int):
             "demand_date": payment.demand_date.strftime('%Y-%m-%d') if payment.demand_date else None,
             "payment_date": payment.payment_date.strftime('%Y-%m-%d') if payment.payment_date else None,
             "delay_days": delay_days,
-            "overdue_amount": overdue_amount
+            "overdue_amount": overdue_amount,
+            "status": payment.status
         })
 
     return {

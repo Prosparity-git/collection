@@ -10,6 +10,7 @@ class DelayCalculationItem(BaseModel):
     payment_date: Optional[str] = None
     delay_days: Optional[int] = None  # Positive = overdue/late, Negative = paid early, None = no demand date
     overdue_amount: Optional[float] = None  # max(0, demand_amount - amount_collected)
+    status: Optional[str] = None  # Repayment status from database (e.g., "Overdue", "Paid", "Partially Paid")
 
 
 class DelayCalculationResponse(BaseModel):

@@ -36,7 +36,8 @@ def calculate_delays_for_loan(
           "demand_date": "2025-01-05", 
           "payment_date": "2025-01-10", 
           "delay_days": 5,
-          "overdue_amount": 500.00
+          "overdue_amount": 500.00,
+          "status": "Paid"
         },
         {
           "payment_id": 124, 
@@ -44,7 +45,8 @@ def calculate_delays_for_loan(
           "demand_date": "2025-02-05", 
           "payment_date": null, 
           "delay_days": 245,
-          "overdue_amount": 5000.00
+          "overdue_amount": 5000.00,
+          "status": "Overdue"
         },
         {
           "payment_id": 125, 
@@ -52,7 +54,8 @@ def calculate_delays_for_loan(
           "demand_date": "2025-09-05", 
           "payment_date": null, 
           "delay_days": 32,
-          "overdue_amount": 0.00
+          "overdue_amount": 0.00,
+          "status": "Overdue"
         }
       ]
     }
