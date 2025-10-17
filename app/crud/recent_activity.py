@@ -6,6 +6,7 @@ from app.models.field_types import FieldTypes
 from app.models.repayment_status import RepaymentStatus
 from app.models.demand_calling import DemandCalling
 from app.models.user import User
+from app.models.payment_mode import PaymentMode
 from app.schemas.recent_activity import RecentActivityItem, ActivityTypeEnum
 from datetime import datetime, timedelta
 
@@ -76,6 +77,27 @@ def get_status_names(db: Session, field_name: str, old_id: str, new_id: str) -> 
         return (old_status.demand_calling_status if old_status else old_id,
                 new_status.demand_calling_status if new_status else new_id)
     
+    elif field_name == "payment_mode":
+        # Get payment mode names
+        old_mode = None
+        new_mode = None
+        
+        if old_id and old_id.strip():
+            try:
+                old_mode_obj = db.query(PaymentMode).filter(PaymentMode.id == int(old_id)).first()
+                old_mode = old_mode_obj.mode_name if old_mode_obj else old_id
+            except (ValueError, TypeError):
+                old_mode = old_id
+        
+        if new_id and new_id.strip():
+            try:
+                new_mode_obj = db.query(PaymentMode).filter(PaymentMode.id == int(new_id)).first()
+                new_mode = new_mode_obj.mode_name if new_mode_obj else new_id
+            except (ValueError, TypeError):
+                new_mode = new_id
+        
+        return old_mode, new_mode
+    
     else:
         # For other fields, return as is
         return (old_id, new_id)
@@ -87,6 +109,7 @@ def map_field_name_to_activity_type(field_name: str) -> Optional[ActivityTypeEnu
         'amount_collected': ActivityTypeEnum.amount_collected,
         'ptp_date': ActivityTypeEnum.ptp_date,
         'demand_calling_status': ActivityTypeEnum.demand_calling_status,
+        'payment_mode': ActivityTypeEnum.payment_mode,
     }
     return mapping.get(field_name)
 

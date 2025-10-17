@@ -23,6 +23,7 @@ from .activity_log import ActivityLog
 from .field_visit_location import FieldVisitLocation
 from .visit_types import VisitType
 from .dpd_monthly_snapshot import DpdMonthlySnapshot
+from .payment_mode import PaymentMode
 
 # Import Base for database operations
 from app.db.base import Base 

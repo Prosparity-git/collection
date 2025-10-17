@@ -29,6 +29,7 @@ class StatusManagementUpdate(BaseModel):
     amount_collected: Optional[float] = None
     contact_calling_status: Optional[int] = None  # ID from contact_calling table
     contact_type: Optional[ContactTypeEnum] = ContactTypeEnum.applicant  # Default to applicant
+    payment_mode_id: Optional[int] = None  # 🎯 NEW! Payment mode from payment_mode table
     
     @validator('ptp_date', pre=True)
     def parse_ptp_date(cls, v):
@@ -58,5 +59,7 @@ class StatusManagementResponse(BaseModel):
     amount_collected: Optional[float] = None
     contact_calling_status: Optional[int] = None
     contact_type: Optional[int] = None
+    payment_mode_id: Optional[int] = None  # 🎯 NEW! Payment mode ID
+    payment_mode_name: Optional[str] = None  # 🎯 NEW! Payment mode name (from join)
     message: str
     updated_at: str

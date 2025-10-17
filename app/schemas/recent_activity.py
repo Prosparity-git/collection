@@ -8,6 +8,7 @@ class ActivityTypeEnum(str, Enum):
     demand_calling_status = "Calling Status" 
     ptp_date = "PTP Date"
     amount_collected = "Amount Collected"
+    payment_mode = "Payment Mode"
 
 class RecentActivityItem(BaseModel):
     id: int

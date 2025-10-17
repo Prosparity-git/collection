@@ -10,6 +10,8 @@ from app.models.repayment_status import RepaymentStatus
 from app.schemas.status_management import StatusManagementUpdate, CallingTypeEnum
 from app.schemas.contact_types import ContactTypeEnum
 from app.crud.user import get_user_by_id
+from app.models.payment_mode import PaymentMode
+from app.models.activity_log import ActivityLog
 
 def update_status_management(
     db: Session, 
@@ -84,6 +86,37 @@ def update_status_management(
         payment_record.amount_collected = status_data.amount_collected
         updated_fields.append("amount_collected")
     
+    # 🎯 NEW! Update payment mode
+    if status_data.payment_mode_id is not None:
+        # Store previous value for activity log
+        previous_payment_mode = payment_record.mode
+        new_payment_mode = str(status_data.payment_mode_id)
+        
+        # Only update if value actually changed
+        if previous_payment_mode != new_payment_mode:
+            # Verify payment mode exists
+            payment_mode = db.query(PaymentMode).filter(
+                PaymentMode.id == status_data.payment_mode_id
+            ).first()
+            
+            if not payment_mode:
+                raise ValueError(f"Invalid payment mode ID: {status_data.payment_mode_id}")
+            
+            payment_record.mode = new_payment_mode
+            updated_fields.append("payment_mode")
+            
+            # 🎯 NEW! Create activity log for payment mode change (manual)
+            if user_id:
+                activity_log = ActivityLog(
+                    loan_application_id=int(loan_id),
+                    payment_id=payment_record.id,
+                    field_type_id=5,  # payment_mode field type
+                    previous_value=previous_payment_mode or "",
+                    new_value=new_payment_mode,
+                    changed_by_user_id=user_id
+                )
+                db.add(activity_log)
+    
     # Enforce business rule: if marking as Paid(Pending Approval) (ID=6),
     # then collected amount must be >= EMI/demand amount
     if status_data.repayment_status == 6:  # ID=6 for "Paid(Pending Approval)"
@@ -157,6 +190,21 @@ def update_status_management(
         elif isinstance(status_data.ptp_date, date):
             response_ptp_date = status_data.ptp_date
     
+    # 🎯 NEW! Get payment mode name for response
+    payment_mode_name = None
+    payment_mode_id = None
+    if payment_record.mode:
+        try:
+            payment_mode_id = int(payment_record.mode)
+            payment_mode = db.query(PaymentMode).filter(
+                PaymentMode.id == payment_mode_id
+            ).first()
+            if payment_mode:
+                payment_mode_name = payment_mode.mode_name
+        except (ValueError, TypeError):
+            # If mode is not a valid integer, skip
+            pass
+    
     return {
         "loan_id": loan_id,
         "repayment_id": repayment_id,  # 🎯 ADDED! Return the repayment_id that was updated
@@ -167,6 +215,8 @@ def update_status_management(
         "amount_collected": status_data.amount_collected,
         "contact_calling_status": status_data.contact_calling_status or (existing_contact_calling.status_id if existing_contact_calling else None),
         "contact_type": (status_data.contact_type or ContactTypeEnum.applicant).value,
+        "payment_mode_id": payment_mode_id,  # 🎯 NEW!
+        "payment_mode_name": payment_mode_name,  # 🎯 NEW!
         "message": f"Updated: {', '.join(updated_fields)}. Calling records created: {', '.join(calling_records_created)}. Repayment ID: {repayment_id}",
         "updated_at": payment_record.updated_at.isoformat() if payment_record.updated_at else None
     }

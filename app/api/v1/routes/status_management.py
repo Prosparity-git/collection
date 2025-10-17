@@ -8,6 +8,7 @@ from app.models.repayment_status import RepaymentStatus
 from app.models.demand_calling import DemandCalling
 from app.models.contact_calling import ContactCalling
 from app.models.calling import Calling
+from app.models.payment_mode import PaymentMode
 from sqlalchemy import and_
 from typing import Optional
 
@@ -124,6 +125,21 @@ def get_application_status(
             if contact_calling_record:
                 contact_calling_status = contact_calling_record.contact_calling_status
         
+        # 🎯 NEW! Get payment mode
+        payment_mode_id = None
+        payment_mode_name = None
+        if payment_details.mode:
+            try:
+                payment_mode_id = int(payment_details.mode)
+                payment_mode_record = db.query(PaymentMode).filter(
+                    PaymentMode.id == payment_mode_id
+                ).first()
+                if payment_mode_record:
+                    payment_mode_name = payment_mode_record.mode_name
+            except (ValueError, TypeError):
+                # If mode is not a valid integer, skip
+                pass
+        
         return {
             "loan_id": loan_id_int,
             "repayment_id": repayment_id,  # 🎯 ADDED! Return the repayment_id
@@ -131,7 +147,9 @@ def get_application_status(
             "repayment_status": repayment_status_name,
             "ptp_date": payment_details.ptp_date.isoformat() if payment_details.ptp_date else None,
             "amount_collected": float(payment_details.amount_collected) if payment_details.amount_collected else None,
-            "contact_calling_status": contact_calling_status
+            "contact_calling_status": contact_calling_status,
+            "payment_mode_id": payment_mode_id,  # 🎯 NEW!
+            "payment_mode_name": payment_mode_name  # 🎯 NEW!
         }
         
     except ValueError as e:
