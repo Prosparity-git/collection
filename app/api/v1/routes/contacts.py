@@ -84,7 +84,8 @@ def get_application_contacts(
                     "name": name,
                     "phone": mobile,  # Use mobile from DDL
                     "email": email,
-                    "type": contact_type
+                    "type": contact_type,
+                    "relationship": getattr(contact, 'relationship_with_applicant', None) if contact_type == "co_applicant" else None
                 }
             except Exception as e:
                 print(f"Error extracting contact info for {contact_type}: {e}")
@@ -93,7 +94,8 @@ def get_application_contacts(
                     "name": "Unknown",
                     "phone": None,
                     "email": None,
-                    "type": contact_type
+                    "type": contact_type,
+                    "relationship": None
                 }
         
         # Build response with actual data

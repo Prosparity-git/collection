@@ -17,6 +17,7 @@ class CoApplicant(Base):
     city = Column(String(100))
     state = Column(String(100))
     pincode = Column(Integer)
+    relationship_with_applicant = Column(String(50), nullable=False, default='spouse')
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
