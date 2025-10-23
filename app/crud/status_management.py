@@ -83,7 +83,14 @@ def update_status_management(
         # If it's neither "clear" nor a valid date, ignore it
     
     if status_data.amount_collected is not None:
-        payment_record.amount_collected = status_data.amount_collected
+        # Get current amount from database (default to 0 if None)
+        current_amount = float(payment_record.amount_collected or 0)
+        
+        # Add new amount to current amount
+        new_total = current_amount + float(status_data.amount_collected)
+        
+        # Update database with total amount
+        payment_record.amount_collected = new_total
         updated_fields.append("amount_collected")
     
     # 🎯 NEW! Update payment mode
@@ -105,7 +112,7 @@ def update_status_management(
             payment_record.mode = new_payment_mode
             updated_fields.append("payment_mode")
             
-            # 🎯 NEW! Create activity log for payment mode change (manual)
+            # 🎯 Create activity log for payment mode change
             if user_id:
                 activity_log = ActivityLog(
                     loan_application_id=int(loan_id),
@@ -120,11 +127,8 @@ def update_status_management(
     # Enforce business rule: if marking as Paid(Pending Approval) (ID=6),
     # then collected amount must be >= EMI/demand amount
     if status_data.repayment_status == 6:  # ID=6 for "Paid(Pending Approval)"
-        current_amount_collected = (
-            float(status_data.amount_collected)
-            if status_data.amount_collected is not None
-            else float(payment_record.amount_collected or 0)
-        )
+        # Use the updated amount_collected (which now includes the addition)
+        current_amount_collected = float(payment_record.amount_collected or 0)
         emi_amount = float(payment_record.demand_amount or 0)
         if current_amount_collected < emi_amount:
             raise ValueError(
@@ -212,7 +216,7 @@ def update_status_management(
         "demand_calling_status": status_data.demand_calling_status or (existing_demand_calling.status_id if existing_demand_calling else None),
         "repayment_status": status_data.repayment_status,
         "ptp_date": response_ptp_date,  # 🎯 MODIFIED! Return processed PTP date
-        "amount_collected": status_data.amount_collected,
+        "amount_collected": payment_record.amount_collected,  # Return the updated total amount
         "contact_calling_status": status_data.contact_calling_status or (existing_contact_calling.status_id if existing_contact_calling else None),
         "contact_type": (status_data.contact_type or ContactTypeEnum.applicant).value,
         "payment_mode_id": payment_mode_id,  # 🎯 NEW!

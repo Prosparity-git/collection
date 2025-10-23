@@ -24,6 +24,9 @@ from .field_visit_location import FieldVisitLocation
 from .visit_types import VisitType
 from .dpd_monthly_snapshot import DpdMonthlySnapshot
 from .payment_mode import PaymentMode
+from .communication_template import CommunicationTemplate
+from .communication import Communication
+from .communication_log import CommunicationLog
 
 # Import Base for database operations
 from app.db.base import Base 

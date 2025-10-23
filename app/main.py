@@ -15,7 +15,8 @@ from app.api.v1.routes import (
     recent_activity,
     field_visit_location,
     export,
-    delay_calculation
+    delay_calculation,
+    otp
 )
 
 app = FastAPI(title="Prosparity Collection Dashboard API", version="1.0.0")
@@ -44,6 +45,7 @@ app.include_router(recent_activity.router, prefix="/api/v1/recent-activity", tag
 app.include_router(field_visit_location.router, prefix="/api/v1/field-visit-location", tags=["Field Visit Location"])
 app.include_router(export.router, prefix="/api/v1/export", tags=["Export"])
 app.include_router(delay_calculation.router, prefix="/api/v1/delay-calculation", tags=["Delay Calculation"])
+app.include_router(otp.router, prefix="/api/v1/otp", tags=["OTP"])
 
 @app.get("/")
 def read_root():

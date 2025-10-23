@@ -32,6 +32,15 @@ class Settings:
         "http://*:5173",  # Allow any IP on port 5173
         "*"  # Allow all origins for development
     ]
+    
+    # MSG91 Configuration
+    MSG91_AUTH_KEY: str = os.getenv("MSG91_AUTH_KEY", "469204ALkC2wCpF68d26b7aP1")
+    
+    MSG91_OTP_LENGTH: int = int(os.getenv("MSG91_OTP_LENGTH", "4"))  # Changed to 4 digits
+    MSG91_OTP_EXPIRE_MINUTES: int = int(os.getenv("MSG91_OTP_EXPIRE_MINUTES", "5"))
+    
+    # Redis Configuration (for OTP storage)
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 settings = Settings()
 
