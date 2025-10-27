@@ -1,9 +1,11 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, text
+from sqlalchemy import and_, text, desc
 from typing import Optional
 from datetime import date
 from app.models.payment_details import PaymentDetails
 from app.models.repayment_status import RepaymentStatus
+from app.models.activity_log import ActivityLog
+from app.models.field_types import FieldTypes
 from app.schemas.paidpending_approval import PaidPendingApprovalRequest
 from app.crud.user import get_user_by_id
 
@@ -75,31 +77,60 @@ def process_paidpending_approval(
         message = "Payment approved successfully. Status changed to Paid and payment_date set to today."
         
     elif approval_data.action == "reject":
-        # REJECT: Check amount and decide status
-        if payment_record.amount_collected and float(payment_record.amount_collected) > 0:
-            # Has amount → "Partially Paid"
-            partially_paid_status = db.query(RepaymentStatus).filter(
-                RepaymentStatus.repayment_status == "Partially Paid"
+        # REJECT: Go back to previous status from Activity Log
+        # Get the repayment_status field type ID
+        repayment_status_field = db.query(FieldTypes).filter(
+            FieldTypes.field_name == "repayment_status"
+        ).first()
+        
+        if not repayment_status_field:
+            raise ValueError("'repayment_status' field type not found in field_types table")
+        
+        # Find the most recent activity log entry where status changed TO Paid(Pending Approval)
+        previous_status_id = None
+        
+        activity_log = db.query(ActivityLog).filter(
+            and_(
+                ActivityLog.payment_id == payment_record.id,
+                ActivityLog.field_type_id == repayment_status_field.id,
+                ActivityLog.new_value == str(paid_pending_approval_status.id)  # Changed TO Paid(Pending Approval)
+            )
+        ).order_by(desc(ActivityLog.created_at)).first()
+        
+        if activity_log and activity_log.previous_value:
+            # Found the previous status ID
+            previous_status_id = int(activity_log.previous_value)
+            
+            # Get the previous status
+            previous_status = db.query(RepaymentStatus).filter(
+                RepaymentStatus.id == previous_status_id
             ).first()
             
-            if not partially_paid_status:
-                raise ValueError("'Partially Paid' status not found in repayment_status table")
-            
-            payment_record.repayment_status_id = partially_paid_status.id
-            new_status_name = "Partially Paid"
-            message = f"Payment rejected. Status changed to Partially Paid due to existing amount: {payment_record.amount_collected}"
+            if previous_status:
+                payment_record.repayment_status_id = previous_status_id
+                new_status_name = previous_status.repayment_status
+                message = f"Payment rejected. Status reverted to previous status: {new_status_name}"
+            else:
+                # Fallback: Status ID found but status doesn't exist
+                overdue_status = db.query(RepaymentStatus).filter(
+                    RepaymentStatus.repayment_status == "Overdue"
+                ).first()
+                if overdue_status:
+                    payment_record.repayment_status_id = overdue_status.id
+                    new_status_name = "Overdue"
+                    message = "Payment rejected. Previous status not found, defaulting to Overdue."
         else:
-            # No amount → "Paid Rejected"
-            paid_rejected_status = db.query(RepaymentStatus).filter(
-                RepaymentStatus.repayment_status == "Paid Rejected"
+            # No activity log found - fallback to Overdue
+            overdue_status = db.query(RepaymentStatus).filter(
+                RepaymentStatus.repayment_status == "Overdue"
             ).first()
             
-            if not paid_rejected_status:
-                raise ValueError("'Paid Rejected' status not found in repayment_status table")
+            if not overdue_status:
+                raise ValueError("'Overdue' status not found in repayment_status table")
             
-            payment_record.repayment_status_id = paid_rejected_status.id
-            new_status_name = "Paid Rejected"
-            message = "Payment rejected. Status changed to Paid Rejected due to no amount collected."
+            payment_record.repayment_status_id = overdue_status.id
+            new_status_name = "Overdue"
+            message = "Payment rejected. No previous status found in activity log, defaulting to Overdue."
     
     # Commit changes
     db.commit()

@@ -27,6 +27,7 @@ from .payment_mode import PaymentMode
 from .communication_template import CommunicationTemplate
 from .communication import Communication
 from .communication_log import CommunicationLog
+from .relationship_with_applicant import RelationshipWithApplicant
 
 # Import Base for database operations
 from app.db.base import Base 

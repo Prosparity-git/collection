@@ -6,6 +6,7 @@ from app.models.guarantor import Guarantor
 from app.models.reference import Reference
 from app.models.applicant_details import ApplicantDetails
 from app.models.loan_details import LoanDetails
+from app.models.relationship_with_applicant import RelationshipWithApplicant
 from typing import Dict, Any
 
 router = APIRouter()
@@ -79,13 +80,24 @@ def get_application_contacts(
                             email = email_val
                             break
                 
+                # Get relationship name for co_applicant
+                relationship = None
+                if contact_type == "co_applicant":
+                    rel_id = getattr(contact, 'relationship_with_applicant', None)
+                    if rel_id:
+                        rel_obj = db.query(RelationshipWithApplicant).filter(
+                            RelationshipWithApplicant.id == rel_id
+                        ).first()
+                        if rel_obj:
+                            relationship = rel_obj.relationship_name
+                
                 return {
                     "id": getattr(contact, 'id', None),
                     "name": name,
                     "phone": mobile,  # Use mobile from DDL
                     "email": email,
                     "type": contact_type,
-                    "relationship": getattr(contact, 'relationship_with_applicant', None) if contact_type == "co_applicant" else None
+                    "relationship": relationship
                 }
             except Exception as e:
                 print(f"Error extracting contact info for {contact_type}: {e}")
