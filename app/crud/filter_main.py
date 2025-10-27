@@ -65,9 +65,9 @@ def filter_options(db: Session):
     statuses = [r.repayment_status for r in db.query(RepaymentStatus).all()]
     statuses.append("Overdue Paid")
     vehicle_statuses = [v.vehicle_status for v in db.query(VehicleStatus).all()]
-    # Get distinct TL and RM IDs from loan_details table
-    team_lead_ids = [row[0] for row in db.query(LoanDetails.current_team_lead_id.distinct()).filter(LoanDetails.current_team_lead_id != None).all()]
-    rm_ids = [row[0] for row in db.query(LoanDetails.Collection_relationship_manager_id.distinct()).filter(LoanDetails.Collection_relationship_manager_id != None).all()]
+    # Get distinct TL and RM IDs from payment_details table
+    team_lead_ids = [row[0] for row in db.query(PaymentDetails.current_team_lead_id.distinct()).filter(PaymentDetails.current_team_lead_id != None).all()]
+    rm_ids = [row[0] for row in db.query(PaymentDetails.Collection_relationship_manager_id.distinct()).filter(PaymentDetails.Collection_relationship_manager_id != None).all()]
     source_rms_ids = [row[0] for row in db.query(LoanDetails.source_relationship_manager_id.distinct()).filter(LoanDetails.source_relationship_manager_id != None).all()]
     source_team_leads_ids = [row[0] for row in db.query(LoanDetails.source_team_lead_id.distinct()).filter(LoanDetails.source_team_lead_id != None).all()]
     # Get names from users table based on the IDs

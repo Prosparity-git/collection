@@ -54,7 +54,7 @@ def get_paid_pending_applications(
         .join(Branch, ApplicantDetails.branch_id == Branch.id)
         .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
         .join(Lender, LoanDetails.lenders_id == Lender.id)
-        .join(RM, LoanDetails.Collection_relationship_manager_id == RM.id)
+        .join(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
         .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
         .filter(PaymentDetails.repayment_status_id == paid_pending_approval_status.id)
         .order_by(desc(PaymentDetails.demand_date))

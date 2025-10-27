@@ -76,9 +76,9 @@ def get_collection_export_data(db: Session, demand_month: int, demand_year: int)
                 LEFT JOIN
             applicant_details AS ad ON ad.applicant_id = ld.applicant_id
                 LEFT JOIN
-            users AS crm ON crm.id = ld.Collection_relationship_manager_id
+            users AS crm ON crm.id = pd.Collection_relationship_manager_id
                 LEFT JOIN
-            users AS ctl ON ctl.id = ld.current_team_lead_id
+            users AS ctl ON ctl.id = pd.current_team_lead_id
                 LEFT JOIN
             users AS srm ON srm.id = ld.source_relationship_manager_id
                 LEFT JOIN

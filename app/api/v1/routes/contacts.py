@@ -6,7 +6,7 @@ from app.models.guarantor import Guarantor
 from app.models.reference import Reference
 from app.models.applicant_details import ApplicantDetails
 from app.models.loan_details import LoanDetails
-from app.models.relationship_with_applicant import RelationshipWithApplicant
+from app.models.relationship import Relationship
 from typing import Dict, Any
 
 router = APIRouter()
@@ -85,8 +85,8 @@ def get_application_contacts(
                 if contact_type == "co_applicant":
                     rel_id = getattr(contact, 'relationship_with_applicant', None)
                     if rel_id:
-                        rel_obj = db.query(RelationshipWithApplicant).filter(
-                            RelationshipWithApplicant.id == rel_id
+                        rel_obj = db.query(Relationship).filter(
+                            Relationship.id == rel_id
                         ).first()
                         if rel_obj:
                             relationship = rel_obj.relationship_name

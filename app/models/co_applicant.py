@@ -17,9 +17,10 @@ class CoApplicant(Base):
     city = Column(String(100))
     state = Column(String(100))
     pincode = Column(Integer)
-    relationship_with_applicant = Column(Integer)  # Changed from String to Integer
+    relationship_with_applicant = Column(Integer, ForeignKey("relationship.id"))
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    loan_details = relationship("LoanDetails", back_populates="co_applicants") 
+    loan_details = relationship("LoanDetails", back_populates="co_applicants")
+    relationship = relationship("Relationship", back_populates="co_applicants") 
