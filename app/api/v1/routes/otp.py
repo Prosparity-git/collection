@@ -9,6 +9,7 @@ from app.models.co_applicant import CoApplicant
 from app.models.communication_template import CommunicationTemplate
 from app.models.communication import Communication
 from app.models.communication_log import CommunicationLog
+from app.models.payment_details import PaymentDetails
 from app.crud.status_management import update_status_management
 from app.schemas.status_management import StatusManagementUpdate
 from datetime import datetime
@@ -88,17 +89,54 @@ def send_otp_payment(
         # 3. Generate OTP
         otp_code = msg91_service.generate_otp()
         
-        # 4. Send OTP via MSG91
+        # 4. Prepare variables for template logging (and potential provider usage)
+        #    Agent name from current user; amount from PaymentDetails
+        agent_name = current_user.get("name", "Agent")
+        amount_value = None
+        try:
+            if request.amount is not None:
+                amount_value = float(request.amount)
+            else:
+                payment = db.query(PaymentDetails).filter(
+                    PaymentDetails.loan_application_id == request.loan_id,
+                    PaymentDetails.id == request.repayment_id
+                ).first()
+                if payment:
+                    amount_value = float(payment.amount_collected) if payment.amount_collected else (
+                        float(payment.demand_amount) if payment.demand_amount else None
+                    )
+        except Exception:
+            # Non-fatal; proceed even if amount lookup fails
+            amount_value = None
+
+        otp_variables = {
+            "OTP": otp_code,
+            "agent_name": agent_name,
+            "amount": amount_value
+        }
+
+        # 5. Send OTP via MSG91 including template variables body as Param1/Param2/Param3
+        variables_payload = {
+            "Param1": str(otp_variables.get("OTP", "")),
+            "Param2": str(otp_variables.get("agent_name", "")),
+            "Param3": str(otp_variables.get("amount", "")),
+            # Also include named keys in case Msg91 maps by names instead of Param order
+            "OTP": str(otp_variables.get("OTP", "")),
+            "agent_name": str(otp_variables.get("agent_name", "")),
+            "amount": str(otp_variables.get("amount", ""))
+        }
+
         success, result = msg91_service.send_otp(
             mobile_number=mobile_number,
             otp=otp_code,
-            template_id=template.template_id
+            template_id=template.template_id,
+            variables=variables_payload
         )
         
         if not success:
             raise HTTPException(status_code=400, detail=result["message"])
         
-        # 5. Create communication record
+        # 6. Create communication record
         communication = Communication(
             loan_id=request.loan_id,
             applicant_id=contact_id,  # This will be the contact ID (applicant_id, co_app_1, ref_1, guar_1)
@@ -112,22 +150,25 @@ def send_otp_payment(
         db.add(communication)
         db.flush()  # Get communication_id
         
-        # 6. Log communication event
+        # 7. Log communication event including the variables used for the template
         log_event = CommunicationLog(
             communication_id=communication.communication_id,
             event_type="api_success" if success else "api_failed",
-            meta_data=json.dumps(result)
+            meta_data=json.dumps({
+                "msg91_result": result,
+                "variables": otp_variables
+            })
         )
         db.add(log_event)
         
-        # 7. Store OTP in Redis (5 min TTL)
+        # 8. Store OTP in Redis (5 min TTL)
         if redis_client:
             redis_key = f"otp:{request.loan_id}:{request.repayment_id}:{mobile_number}"
             redis_client.setex(redis_key, 300, otp_code)  # 5 minutes = 300 seconds
         
         db.commit()
         
-        # 8. Return response
+        # 9. Return response
         masked_mobile = mobile_number[:3] + "****" + mobile_number[-2:]
         return SendOTPResponse(
             success=True,

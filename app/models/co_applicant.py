@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, TIMESTAMP, ForeignKey, func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
-#
+
 class CoApplicant(Base):
     __tablename__ = "co_applicant"
     id = Column(Integer, primary_key=True, index=True)

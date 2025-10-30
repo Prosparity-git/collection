@@ -18,8 +18,10 @@ class MSG91Service:
         """Generate random OTP"""
         return ''.join(random.choices(string.digits, k=self.otp_length))
     
-    def send_otp(self, mobile_number: str, otp: str, template_id: str) -> Tuple[bool, Dict[str, Any]]:
-        """Send OTP via MSG91"""
+    def send_otp(self, mobile_number: str, otp: str, template_id: str, variables: Optional[Dict[str, Any]] = None) -> Tuple[bool, Dict[str, Any]]:
+        """Send OTP via MSG91 with optional template variables in JSON body.
+        variables example for template params order: {"Param1": otp, "Param2": agent_name, "Param3": amount}
+        """
         try:
             # Format mobile number with country code (91 for India)
             formatted_mobile = f"91{mobile_number}"
@@ -39,8 +41,9 @@ class MSG91Service:
                 "content-type": "application/json"
             }
             
-            # Make POST request with query parameters
-            response = requests.post(url, params=params, json={}, headers=headers, timeout=30)
+            # Make POST request with query parameters and JSON body for variables
+            json_body: Dict[str, Any] = variables or {}
+            response = requests.post(url, params=params, json=json_body, headers=headers, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()

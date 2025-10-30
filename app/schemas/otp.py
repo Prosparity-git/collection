@@ -12,6 +12,7 @@ class SendOTPRequest(BaseModel):
     repayment_id: int
     template_key: Optional[str] = "1"  # Database ID of the template
     contact_type: Optional[ContactTypeEnum] = ContactTypeEnum.applicant  # Who to send OTP to
+    amount: Optional[float] = None  # Optional override for amount to send in SMS
     
     @validator('loan_id')
     def validate_loan_id(cls, v):
