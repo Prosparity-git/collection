@@ -65,3 +65,26 @@ class VerifyOTPResponse(BaseModel):
     mobile_number: str
     verified_at: Optional[datetime] = None
     payment_status_updated: Optional[bool] = False
+
+class ResendOTPRequest(BaseModel):
+    loan_id: int
+    repayment_id: int
+    contact_type: Optional[ContactTypeEnum] = ContactTypeEnum.applicant
+    retry_type: Optional[str] = "text"  # 'text' or 'voice'
+    
+    @validator('loan_id')
+    def validate_loan_id(cls, v):
+        if v <= 0:
+            raise ValueError('Loan ID must be positive')
+        return v
+    
+    @validator('repayment_id')
+    def validate_repayment_id(cls, v):
+        if v <= 0:
+            raise ValueError('Repayment ID must be positive')
+        return v
+
+class ResendOTPResponse(BaseModel):
+    success: bool
+    message: str
+    mobile_number: str  # masked

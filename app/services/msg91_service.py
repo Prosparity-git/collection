@@ -130,5 +130,45 @@ class MSG91Service:
                 "response": None
             }
 
+    def resend_otp(self, mobile_number: str, retry_type: str = "text") -> Tuple[bool, Dict[str, Any]]:
+        """
+        Resend OTP via MSG91 retry API.
+        retry_type: "text" for SMS (default) or "voice" for voice call.
+        """
+        try:
+            formatted_mobile = f"91{mobile_number}"
+            url = f"{self.base_url}/retry"
+            params = {
+                "authkey": self.auth_key,
+                "retrytype": retry_type,
+                "mobile": formatted_mobile
+            }
+            # GET request as per MSG91 docs
+            response = requests.get(url, params=params, timeout=30)
+            if response.status_code == 200:
+                result = response.json() if response.headers.get("content-type", "").startswith("application/json") else {"raw": response.text}
+                return True, {
+                    "success": True,
+                    "message": "OTP resent successfully",
+                    "response": result
+                }
+            return False, {
+                "success": False,
+                "message": f"Failed to resend OTP: {response.text}",
+                "response": response.text
+            }
+        except requests.exceptions.RequestException as e:
+            return False, {
+                "success": False,
+                "message": f"Network error: {str(e)}",
+                "response": None
+            }
+        except Exception as e:
+            return False, {
+                "success": False,
+                "message": f"Error resending OTP: {str(e)}",
+                "response": None
+            }
+
 # Create service instance
 msg91_service = MSG91Service()

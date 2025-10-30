@@ -1,7 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.deps import get_db, get_current_user
-from app.schemas.otp import SendOTPRequest, SendOTPResponse, VerifyOTPRequest, VerifyOTPResponse
+from app.schemas.otp import (
+    SendOTPRequest,
+    SendOTPResponse,
+    VerifyOTPRequest,
+    VerifyOTPResponse,
+    ResendOTPRequest,
+    ResendOTPResponse,
+)
 from app.services.msg91_service import msg91_service
 from app.models.loan_details import LoanDetails
 from app.models.applicant_details import ApplicantDetails
@@ -289,3 +296,35 @@ def verify_otp_and_update_status(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to verify OTP and update status: {str(e)}")
+
+# Resend OTP using MSG91 retry API
+@router.post("/resend-otp-payment", response_model=ResendOTPResponse)
+def resend_otp_payment(
+    request: ResendOTPRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # Resolve contact mobile number
+        mobile_number, _, error_msg = get_contact_details(
+            db, request.loan_id, request.contact_type.value
+        )
+        if error_msg:
+            raise HTTPException(status_code=400, detail=error_msg)
+        # Call service
+        success, result = msg91_service.resend_otp(
+            mobile_number=mobile_number,
+            retry_type=request.retry_type or "text",
+        )
+        if not success:
+            raise HTTPException(status_code=400, detail=result.get("message", "Failed to resend OTP"))
+        masked_mobile = mobile_number[:3] + "****" + mobile_number[-2:]
+        return ResendOTPResponse(
+            success=True,
+            message="OTP resent successfully",
+            mobile_number=masked_mobile,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resend OTP: {str(e)}")
