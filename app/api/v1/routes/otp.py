@@ -225,7 +225,7 @@ def verify_otp_payment(
             Communication.repayment_id == request.repayment_id
         ).order_by(Communication.created_at.desc()).first()
         
-        # 4. Log verification event
+        # 4. Log verification event and COMMIT even on failure so logs persist
         if communication:
             log_event = CommunicationLog(
                 communication_id=communication.communication_id,
@@ -233,8 +233,11 @@ def verify_otp_payment(
                 meta_data=json.dumps(result)
             )
             db.add(log_event)
+            # Ensure log is stored regardless of verify outcome
+            db.commit()
         
         if not success:
+            # Do not rollback here; the above commit preserved the log entry
             raise HTTPException(status_code=400, detail=result["message"])
         
         # 5. Delete OTP from Redis (one-time use)
