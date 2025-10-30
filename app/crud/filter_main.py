@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session, aliased
+from sqlalchemy import distinct, select
 from app.models.branch import Branch
 from app.models.dealer import Dealer
 from app.models.lenders import Lender
@@ -7,6 +8,7 @@ from app.models.vehicle_status import VehicleStatus
 from app.models.payment_details import PaymentDetails
 from app.models.user import User
 from app.models.loan_details import LoanDetails
+from app.models.applicant_details import ApplicantDetails
 from app.models.dpd_monthly_snapshot import DpdMonthlySnapshot
 from datetime import date, timedelta
 
@@ -94,6 +96,141 @@ def filter_options(db: Session):
         "demand_num": demand_num,  # 🎯 ADDED! Demand numbers for filtering
         "dpd_buckets": dpd_buckets,  # 🎯 ADDED! DPD buckets for filtering
     }
-    
 
+
+def cascading_options(
+    db: Session, 
+    branch_id: int = None, 
+    dealer_id: int = None,
+    lender_id: int = None,
+    tl_id: int = None, 
+    rm_id: int = None,
+    source_tl_id: int = None,
+    source_rm_id: int = None
+):
+    """
+    Get cascading filter options for Branch, Dealer, Lender, Current Team Lead, Current RM,
+    Source Team Lead, and Source RM (from loan_details).
+    All fields are dependent on each other through cascading logic.
+    Uses payment_details table with JOINs to loan_details and applicant_details.
+    Optimized with DISTINCT queries and proper joins to avoid N+1.
+    """
+    # Base query: payment_details -> loan_details -> applicant_details -> branch & dealer
+    # Using aliases for cleaner joins
+    pd = aliased(PaymentDetails)
+    ld = aliased(LoanDetails)
+    ad = aliased(ApplicantDetails)
+    
+    # Build the base query with joins - includes all fields we need
+    base_query = db.query(
+        pd.current_team_lead_id.label('current_tl_id'),
+        pd.Collection_relationship_manager_id.label('current_rm_id'),
+        ld.source_team_lead_id.label('source_tl_id'),
+        ld.source_relationship_manager_id.label('source_rm_id'),
+        ld.lenders_id.label('lender_id'),
+        ad.branch_id.label('branch_id'),
+        ad.dealer_id.label('dealer_id')
+    ).join(
+        ld, pd.loan_application_id == ld.loan_application_id
+    ).join(
+        ad, ld.applicant_id == ad.applicant_id
+    )
+    
+    # Apply filters based on selected options (affects all cascading)
+    if branch_id:
+        base_query = base_query.filter(ad.branch_id == branch_id)
+    if dealer_id:
+        base_query = base_query.filter(ad.dealer_id == dealer_id)
+    if lender_id:
+        base_query = base_query.filter(ld.lenders_id == lender_id)
+    if tl_id:
+        base_query = base_query.filter(pd.current_team_lead_id == tl_id)
+    if rm_id:
+        base_query = base_query.filter(pd.Collection_relationship_manager_id == rm_id)
+    if source_tl_id:
+        base_query = base_query.filter(ld.source_team_lead_id == source_tl_id)
+    if source_rm_id:
+        base_query = base_query.filter(ld.source_relationship_manager_id == source_rm_id)
+    
+    # Get all distinct combinations (one query for everything)
+    all_results = base_query.filter(
+        ad.branch_id.isnot(None)
+    ).distinct().all()
+    
+    # Extract unique IDs using sets for O(1) lookups
+    branch_ids = set()
+    dealer_ids = set()
+    lender_ids = set()
+    current_tl_ids = set()
+    current_rm_ids = set()
+    source_tl_ids = set()
+    source_rm_ids = set()
+    
+    for row in all_results:
+        if row.branch_id:
+            branch_ids.add(row.branch_id)
+        if row.dealer_id:
+            dealer_ids.add(row.dealer_id)
+        if row.lender_id:
+            lender_ids.add(row.lender_id)
+        if row.current_tl_id:
+            current_tl_ids.add(row.current_tl_id)
+        if row.current_rm_id:
+            current_rm_ids.add(row.current_rm_id)
+        if row.source_tl_id:
+            source_tl_ids.add(row.source_tl_id)
+        if row.source_rm_id:
+            source_rm_ids.add(row.source_rm_id)
+    
+    # Batch fetch branch details (1 query instead of N)
+    branches = []
+    if branch_ids:
+        branches_query = db.query(Branch.id, Branch.name).filter(Branch.id.in_(branch_ids)).all()
+        branches = [{"id": bid, "name": name} for bid, name in branches_query]
+    
+    # Batch fetch dealer details (1 query instead of N)
+    dealers = []
+    if dealer_ids:
+        dealer_query = db.query(Dealer.id, Dealer.name).filter(Dealer.id.in_(dealer_ids)).all()
+        dealers = [{"id": did, "name": name} for did, name in dealer_query]
+    
+    # Batch fetch lender details (1 query instead of N)
+    lenders = []
+    if lender_ids:
+        lender_query = db.query(Lender.id, Lender.name).filter(Lender.id.in_(lender_ids)).all()
+        lenders = [{"id": lid, "name": name} for lid, name in lender_query]
+    
+    # Batch fetch current team lead details (1 query instead of N)
+    team_leads = []
+    if current_tl_ids:
+        tl_query = db.query(User.id, User.name).filter(User.id.in_(current_tl_ids)).all()
+        team_leads = [{"id": uid, "name": name} for uid, name in tl_query]
+    
+    # Batch fetch current RM details (1 query instead of N)
+    rms = []
+    if current_rm_ids:
+        rm_query = db.query(User.id, User.name).filter(User.id.in_(current_rm_ids)).all()
+        rms = [{"id": uid, "name": name} for uid, name in rm_query]
+    
+    # Batch fetch source team lead details (1 query instead of N)
+    source_team_leads = []
+    if source_tl_ids:
+        source_tl_query = db.query(User.id, User.name).filter(User.id.in_(source_tl_ids)).all()
+        source_team_leads = [{"id": uid, "name": name} for uid, name in source_tl_query]
+    
+    # Batch fetch source RM details (1 query instead of N)
+    source_rms = []
+    if source_rm_ids:
+        source_rm_query = db.query(User.id, User.name).filter(User.id.in_(source_rm_ids)).all()
+        source_rms = [{"id": uid, "name": name} for uid, name in source_rm_query]
+    
+    return {
+        "branches": branches,
+        "dealers": dealers,
+        "lenders": lenders,
+        "team_leads": team_leads,
+        "rms": rms,
+        "source_team_leads": source_team_leads,
+        "source_rms": source_rms
+    }
 
