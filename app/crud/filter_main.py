@@ -100,13 +100,13 @@ def filter_options(db: Session):
 
 def cascading_options(
     db: Session, 
-    branch_id: int = None, 
-    dealer_id: int = None,
-    lender_id: int = None,
-    tl_id: int = None, 
-    rm_id: int = None,
-    source_tl_id: int = None,
-    source_rm_id: int = None
+    branch_ids: list = None, 
+    dealer_ids: list = None,
+    lender_ids: list = None,
+    tl_ids: list = None, 
+    rm_ids: list = None,
+    source_tl_ids: list = None,
+    source_rm_ids: list = None
 ):
     """
     Get cascading filter options for Branch, Dealer, Lender, Current Team Lead, Current RM,
@@ -114,6 +114,7 @@ def cascading_options(
     All fields are dependent on each other through cascading logic.
     Uses payment_details table with JOINs to loan_details and applicant_details.
     Optimized with DISTINCT queries and proper joins to avoid N+1.
+    Supports multiple values for all filter parameters (lists).
     """
     # Base query: payment_details -> loan_details -> applicant_details -> branch & dealer
     # Using aliases for cleaner joins
@@ -137,20 +138,21 @@ def cascading_options(
     )
     
     # Apply filters based on selected options (affects all cascading)
-    if branch_id:
-        base_query = base_query.filter(ad.branch_id == branch_id)
-    if dealer_id:
-        base_query = base_query.filter(ad.dealer_id == dealer_id)
-    if lender_id:
-        base_query = base_query.filter(ld.lenders_id == lender_id)
-    if tl_id:
-        base_query = base_query.filter(pd.current_team_lead_id == tl_id)
-    if rm_id:
-        base_query = base_query.filter(pd.Collection_relationship_manager_id == rm_id)
-    if source_tl_id:
-        base_query = base_query.filter(ld.source_team_lead_id == source_tl_id)
-    if source_rm_id:
-        base_query = base_query.filter(ld.source_relationship_manager_id == source_rm_id)
+    # Support both single values and lists using IN clause
+    if branch_ids:
+        base_query = base_query.filter(ad.branch_id.in_(branch_ids))
+    if dealer_ids:
+        base_query = base_query.filter(ad.dealer_id.in_(dealer_ids))
+    if lender_ids:
+        base_query = base_query.filter(ld.lenders_id.in_(lender_ids))
+    if tl_ids:
+        base_query = base_query.filter(pd.current_team_lead_id.in_(tl_ids))
+    if rm_ids:
+        base_query = base_query.filter(pd.Collection_relationship_manager_id.in_(rm_ids))
+    if source_tl_ids:
+        base_query = base_query.filter(ld.source_team_lead_id.in_(source_tl_ids))
+    if source_rm_ids:
+        base_query = base_query.filter(ld.source_relationship_manager_id.in_(source_rm_ids))
     
     # Get all distinct combinations (one query for everything)
     all_results = base_query.filter(
