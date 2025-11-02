@@ -28,9 +28,7 @@ class Settings:
         "http://127.0.0.1:5173",
         "http://0.0.0.0:3000",
         "http://0.0.0.0:5173",
-        "http://*:3000",  # Allow any IP on port 3000
-        "http://*:5173",  # Allow any IP on port 5173
-        "*"  # Allow all origins for development
+        # Note: explicit origins only; no wildcard when allow_credentials=True
     ]
     
     # MSG91 Configuration
@@ -41,6 +39,16 @@ class Settings:
     
     # Redis Configuration (for OTP storage)
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+    # AWS / S3 Configuration
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")
+    S3_BUCKET: str = os.getenv("S3_BUCKET", "")
+    S3_PREFIX: str = os.getenv("S3_PREFIX", "field-visits/")
+    PRESIGNED_TTL_SECONDS: int = int(os.getenv("PRESIGNED_TTL_SECONDS", "300"))
+    MAX_UPLOAD_MB: int = int(os.getenv("MAX_UPLOAD_MB", "10"))
+    CLOUDFRONT_URL: str = os.getenv("CLOUDFRONT_URL", "")
 
 settings = Settings()
 
