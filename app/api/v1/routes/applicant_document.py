@@ -20,12 +20,13 @@ def get_presigned_url(
     loan_application_id: int = Form(...),
     filename: str = Form(...),
     content_type: str = Form(...),
+    visit_type: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     if not content_type.startswith(("image/")):
         raise HTTPException(status_code=400, detail="Only image uploads are allowed")
-    key = make_key_for_document(loan_application_id, current_user["id"], filename)
+    key = make_key_for_document(loan_application_id, current_user["id"], filename, visit_type)
     # Prefer POST; clients that only support PUT can switch key below
     post = presign_post(key, content_type)
     return {"method": "POST", "upload_url": post["url"], "fields": post["fields"], "s3_key": key}

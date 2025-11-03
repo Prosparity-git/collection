@@ -5,6 +5,7 @@ from app.core.config import settings
 
 # Hardcoded AWS S3 configuration (requested to avoid env usage)
 
+
 _session = boto3.session.Session(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
@@ -12,10 +13,32 @@ _session = boto3.session.Session(
 )
 _s3 = _session.client("s3", config=BotoConfig(signature_version="s3v4"))
 
+def _sanitize_prefix(raw_prefix: str | None) -> str:
+    """Create a safe S3 prefix from a human label.
 
-def make_key_for_document(loan_application_id: int, agent_id: int, filename: str) -> str:
+    Only keep lowercase letters, numbers and dashes, collapse spaces to dashes,
+    and always add a trailing slash. Falls back to settings.S3_PREFIX when empty.
+    """
+    if not raw_prefix:
+        return settings.S3_PREFIX
+    label = raw_prefix.strip().lower().replace(" ", "-")
+    safe = "".join(ch for ch in label if ("a" <= ch <= "z") or ("0" <= ch <= "9") or ch == "-")
+    if not safe:
+        return settings.S3_PREFIX
+    if not safe.endswith("/"):
+        safe = f"{safe}/"
+    return safe
+
+
+def make_key_for_document(
+    loan_application_id: int,
+    agent_id: int,
+    filename: str,
+    visit_type_label: str | None = None,
+) -> str:
     ext = filename.split(".")[-1].lower() if "." in filename else "jpg"
-    return f"{settings.S3_PREFIX}loan/{loan_application_id}/{agent_id}/{uuid.uuid4()}.{ext}"
+    prefix = _sanitize_prefix(visit_type_label)
+    return f"{prefix}loan/{loan_application_id}/{agent_id}/{uuid.uuid4()}.{ext}"
 
 
 def presign_put(key: str, content_type: str) -> str:
