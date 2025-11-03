@@ -13,7 +13,8 @@ class ApplicantDocumentCreate(BaseModel):
     applicant_id: str
     loan_application_id: int
     repayment_id: Optional[int] = None
-    doc_category_id: int
+    field_visit_location_id: Optional[int] = None
+    doc_category_id: int = 4
     file_name: str
     s3_key: str
     mime_type: Optional[str] = None
@@ -26,6 +27,7 @@ class ApplicantDocumentResponse(BaseModel):
     applicant_id: str
     loan_application_id: int
     repayment_id: Optional[int] = None
+    field_visit_location_id: Optional[int] = None
     doc_category_id: int
     file_name: str
     s3_key: str

@@ -20,6 +20,7 @@ class ApplicantDocument(Base):
     applicant_id = Column(String(100), nullable=False, index=True)
     loan_application_id = Column(Integer, nullable=False, index=True)
     repayment_id = Column(Integer, nullable=True, index=True)
+    field_visit_location_id = Column(Integer, nullable=True, index=True)
     doc_category_id = Column(Integer, nullable=False, index=True)
     uploaded_by = Column(Integer, nullable=False, index=True)
     file_name = Column(String(255), nullable=False)

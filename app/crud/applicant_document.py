@@ -10,6 +10,7 @@ def create_document(db: Session, data: ApplicantDocumentCreate, uploaded_by: int
         applicant_id=data.applicant_id,
         loan_application_id=data.loan_application_id,
         repayment_id=data.repayment_id,
+        field_visit_location_id=data.field_visit_location_id,
         doc_category_id=data.doc_category_id,
         uploaded_by=uploaded_by,
         file_name=data.file_name,
