@@ -20,7 +20,7 @@ class PaymentDetails(Base):
     ptp_date = Column(DATE)
     repayment_status_id = Column(Integer, ForeignKey("repayment_status.id"))
     mode = Column(String(50))
-    payment_information = Column(String(55))
+    payment_information = Column(Integer, nullable=True)
     Collection_relationship_manager_id = Column(Integer)
     current_team_lead_id = Column(Integer)
     created_at = Column(TIMESTAMP, server_default=func.now())

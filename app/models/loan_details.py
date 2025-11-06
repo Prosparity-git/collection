@@ -16,6 +16,7 @@ class LoanDetails(Base):
     current_team_lead_id = Column(Integer)
     lenders_id = Column(Integer, ForeignKey("lenders.id"))
     tenure = Column(Integer)
+    total_overdue_amount = Column(Integer, nullable=True)  # 🎯 ADDED! Total overdue amount from LMS
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 

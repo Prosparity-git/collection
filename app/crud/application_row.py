@@ -14,6 +14,8 @@ from app.models.demand_calling import DemandCalling
 from app.models.vehicle_repossession_status import VehicleRepossessionStatus  # 🎯 ADDED! For vehicle repossession
 from app.models.vehicle_status import VehicleStatus  # 🎯 ADDED! For vehicle status
 from app.models.dpd_monthly_snapshot import DpdMonthlySnapshot  # 🎯 ADDED! For DPD bucket
+from app.models.nach_status import NachStatus  # 🎯 ADDED! For NACH status
+from app.crud.overdue_calculation import calculate_current_overdue_batch  # 🎯 ADDED! For batch overdue calculation
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -107,7 +109,9 @@ def get_filtered_applications(
         VehicleRepossessionStatus.repossession_date.label("repossession_date"),
         VehicleRepossessionStatus.repossession_sale_date.label("repossession_sale_date"),
         VehicleRepossessionStatus.repossession_sale_amount.label("repossession_sale_amount"),
-        latest_dpd_subquery.c.dpd_bucket_name.label("current_dpd_bucket")
+        latest_dpd_subquery.c.dpd_bucket_name.label("current_dpd_bucket"),
+        LoanDetails.total_overdue_amount.label("total_overdue_amount"),  # 🎯 ADDED! Total overdue amount from LMS
+        PaymentDetails.payment_information.label("payment_information")  # 🎯 OPTIMIZED! Store ID for batch lookup
     ]
     
     if emi_month:
@@ -364,6 +368,29 @@ def get_filtered_applications(
             seen_demand.add(demand.repayment_id)
             demand_calling_by_payment[demand.repayment_id] = demand.demand_calling_status
     
+    # 🎯 OPTIMIZED! Batch fetch NACH status data only for IDs 2 and 3 (skip 1 - cleared status)
+    nach_ids = list(set([row.payment_information for row in rows if row.payment_information is not None and row.payment_information != 1]))
+    nach_status_by_id = {}
+    if nach_ids:
+        nach_status_query = (
+            db.query(
+                NachStatus.id,
+                NachStatus.nach_status,
+                NachStatus.reason
+            )
+            .filter(NachStatus.id.in_(nach_ids))
+            .all()
+        )
+        for nach in nach_status_query:
+            nach_status_by_id[nach.id] = {
+                "nach_status": nach.nach_status,
+                "reason": nach.reason
+            }
+    
+    # 🎯 OPTIMIZED! Batch calculate current_overdue_amount for all loans (avoids N+1 queries)
+    unique_loan_ids = list(set([row.loan_id for row in rows]))
+    current_overdue_by_loan = calculate_current_overdue_batch(db, unique_loan_ids)
+    
     # Build results efficiently
     results = []
     for row in rows:
@@ -400,7 +427,11 @@ def get_filtered_applications(
             "repossession_date": row.repossession_date.strftime('%Y-%m-%d') if row.repossession_date else None,
             "repossession_sale_date": row.repossession_sale_date.strftime('%Y-%m-%d') if row.repossession_sale_date else None,
             "repossession_sale_amount": float(row.repossession_sale_amount) if row.repossession_sale_amount else None,
-            "current_dpd_bucket": row.current_dpd_bucket
+            "current_dpd_bucket": row.current_dpd_bucket,
+            "total_overdue_amount": int(row.total_overdue_amount) if row.total_overdue_amount is not None else None,  # 🎯 ADDED! Total overdue from LMS
+            "current_overdue_amount": current_overdue_by_loan.get(row.loan_id),  # 🎯 ADDED! Calculated current overdue
+            "nach_status": "1" if row.payment_information == 1 else (nach_status_by_id.get(row.payment_information, {}).get("nach_status") if row.payment_information else None),  # 🎯 OPTIMIZED! "1" for cleared, actual status for 2/3
+            "reason": nach_status_by_id.get(row.payment_information, {}).get("reason") if row.payment_information and row.payment_information != 1 else None  # 🎯 OPTIMIZED! Only for 2/3, None for 1
         })
 
     return {
