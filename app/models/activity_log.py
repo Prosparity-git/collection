@@ -16,6 +16,7 @@ class ActivityLog(Base):
     
     # Metadata
     changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    is_delete = Column(Integer, nullable=True, default=0)  # TINYINT(1) - 0 = not deleted, 1 = deleted
     created_at = Column(TIMESTAMP, server_default=func.now())
     
     # Relationships

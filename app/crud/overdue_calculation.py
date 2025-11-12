@@ -17,7 +17,7 @@ def calculate_current_overdue_batch(
     Formula for each loan:
     x = (sum of new_values) - (sum of previous_values) from activity_log
         where field_type = 'amount_collected' 
-        and created_at >= 7th of current month
+        and created_at >= latest create_date from raw_pos_overdue table
         and loan_application_id = loan_id
     
     current_overdue = total_overdue_amount (from LMS) - x
@@ -33,12 +33,17 @@ def calculate_current_overdue_batch(
     if not loan_ids:
         return {}
     
-    # Determine the 7th of current month
+    # Determine the 7th of current month (for fallback)
     if current_month is None:
         current_month = date.today()
     
-    # Calculate the 7th of current month
-    seventh_of_month = date(current_month.year, current_month.month, 6)
+    # Get the latest create_date from raw_pos_overdue table
+    from app.models.raw_pos_overdue import RawPosOverdue
+    latest_create_date = db.query(func.max(func.date(RawPosOverdue.create_date))).scalar()
+    
+    # If no records exist in raw_pos_overdue, fallback to 7th of current month
+    if latest_create_date is None:
+        latest_create_date = date(current_month.year, current_month.month, 7)
     
     # Get field_type_id for 'amount_collected' (single query)
     amount_field_type = db.query(FieldTypes).filter(
@@ -65,7 +70,8 @@ def calculate_current_overdue_batch(
             and_(
                 ActivityLog.loan_application_id.in_(loan_ids),
                 ActivityLog.field_type_id == amount_field_type.id,
-                func.date(ActivityLog.created_at) >= seventh_of_month
+                func.date(ActivityLog.created_at) >= latest_create_date,
+                ActivityLog.is_delete == 0  # Only include non-deleted records
             )
         )
         .group_by(ActivityLog.loan_application_id)

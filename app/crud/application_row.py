@@ -16,8 +16,9 @@ from app.models.vehicle_status import VehicleStatus  # 🎯 ADDED! For vehicle s
 from app.models.dpd_monthly_snapshot import DpdMonthlySnapshot  # 🎯 ADDED! For DPD bucket
 from app.models.nach_status import NachStatus  # 🎯 ADDED! For NACH status
 from app.crud.overdue_calculation import calculate_current_overdue_batch  # 🎯 ADDED! For batch overdue calculation
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from collections import defaultdict
+import calendar
 
 def _combine_address(address_line1, address_line2, address_line3):
     """
@@ -36,6 +37,45 @@ def _combine_address(address_line1, address_line2, address_line3):
     
     # Join with comma and space, return None if no address parts
     return ', '.join(address_parts) if address_parts else None
+
+def _emi_month_to_date_range(emi_month: str):
+    """
+    Convert emi_month string (e.g., 'oct-25') to date range tuple (start_date, end_date).
+    This allows using direct date comparisons instead of date_format function for better index usage.
+    """
+    try:
+        # Parse format like 'oct-25' or 'Oct-25'
+        parts = emi_month.lower().split('-')
+        if len(parts) != 2:
+            return None, None
+        
+        month_str = parts[0].strip()
+        year_str = parts[1].strip()
+        
+        # Convert month name to number
+        month_map = {
+            'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+            'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        }
+        
+        month = month_map.get(month_str)
+        if not month:
+            return None, None
+        
+        # Convert year (assume 20xx for 2-digit years)
+        if len(year_str) == 2:
+            year = 2000 + int(year_str)
+        else:
+            year = int(year_str)
+        
+        # Get first and last day of month
+        start_date = date(year, month, 1)
+        last_day = calendar.monthrange(year, month)[1]
+        end_date = date(year, month, last_day)
+        
+        return start_date, end_date
+    except (ValueError, AttributeError):
+        return None, None
 
 def get_filtered_applications(
     db: Session,
@@ -62,18 +102,21 @@ def get_filtered_applications(
     SourceRM = aliased(User)
     SourceTL = aliased(User)
 
-    # Create subquery for latest DPD bucket for each loan_application_id
-    latest_dpd_subquery = (
-        db.query(
-            DpdMonthlySnapshot.loan_application_id,
-            DpdMonthlySnapshot.dpd_bucket_name,
-            func.row_number().over(
-                partition_by=DpdMonthlySnapshot.loan_application_id,
-                order_by=DpdMonthlySnapshot.id.desc()
-            ).label('rn')
+    # Create subquery for latest DPD bucket for each loan_application_id (only if needed)
+    # Only create if current_dpd_bucket filter is used or if we need the field
+    latest_dpd_subquery = None
+    if current_dpd_bucket or True:  # Always needed for base_fields
+        latest_dpd_subquery = (
+            db.query(
+                DpdMonthlySnapshot.loan_application_id,
+                DpdMonthlySnapshot.dpd_bucket_name,
+                func.row_number().over(
+                    partition_by=DpdMonthlySnapshot.loan_application_id,
+                    order_by=DpdMonthlySnapshot.id.desc()
+                ).label('rn')
+            )
+            .subquery()
         )
-        .subquery()
-    )
 
     # Create base query fields
     base_fields = [
@@ -111,20 +154,31 @@ def get_filtered_applications(
         VehicleRepossessionStatus.repossession_sale_amount.label("repossession_sale_amount"),
         latest_dpd_subquery.c.dpd_bucket_name.label("current_dpd_bucket"),
         LoanDetails.total_overdue_amount.label("total_overdue_amount"),  # 🎯 ADDED! Total overdue amount from LMS
+        LoanDetails.total_pos.label("total_pos"),  # 🎯 ADDED! Total POS amount
         PaymentDetails.payment_information.label("payment_information")  # 🎯 OPTIMIZED! Store ID for batch lookup
     ]
     
     if emi_month:
-        # Direct month filter - much faster than subquery
+        # Convert emi_month to date range for index-friendly query
+        start_date, end_date = _emi_month_to_date_range(emi_month)
+        
+        # Build join condition with date range filter (allows index usage)
+        payment_join_condition = (
+            PaymentDetails.loan_application_id == LoanDetails.loan_application_id
+        )
+        if start_date and end_date:
+            payment_join_condition = payment_join_condition & (
+                PaymentDetails.demand_date >= start_date
+            ) & (
+                PaymentDetails.demand_date <= end_date
+            )
+        
+        # Direct month filter using date range - much faster with indexes
         query = (
             db.query(*base_fields)
             .select_from(LoanDetails)
             .join(ApplicantDetails, LoanDetails.applicant_id == ApplicantDetails.applicant_id)
-            .join(
-                PaymentDetails,
-                (PaymentDetails.loan_application_id == LoanDetails.loan_application_id) &
-                (func.date_format(PaymentDetails.demand_date, '%b-%y') == emi_month)
-            )
+            .join(PaymentDetails, payment_join_condition)
             .join(Branch, ApplicantDetails.branch_id == Branch.id)
             .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
             .join(Lender, LoanDetails.lenders_id == Lender.id)
@@ -327,11 +381,13 @@ def get_filtered_applications(
             if ptp_conditions:
                 query = query.filter(or_(*ptp_conditions))
     
-    # Order by applicant name
-    query = query.order_by(ApplicantDetails.first_name.asc(), ApplicantDetails.last_name.asc())
+    # Get total count efficiently - count before ordering (faster)
+    # Create a count query without ordering to optimize performance
+    count_query = query.with_entities(PaymentDetails.id).distinct()
+    total = count_query.count()
     
-    # Get total count efficiently
-    total = query.with_entities(PaymentDetails.id).count()
+    # Order by applicant name (only for results, not for count)
+    query = query.order_by(ApplicantDetails.first_name.asc(), ApplicantDetails.last_name.asc())
     
     # Get paginated results
     rows = query.offset(offset).limit(limit).all()
@@ -339,10 +395,11 @@ def get_filtered_applications(
     if not rows:
         return {"total": total, "results": []}
     
-    # Extract payment IDs for batch queries
-    payment_ids = [str(row.payment_id) for row in rows]
+    # Extract payment IDs for batch queries (keep as integers for better index usage)
+    payment_ids = [row.payment_id for row in rows]
+    payment_ids_str = [str(pid) for pid in payment_ids]  # For dictionary lookup
     
-    # Batch fetch demand calling statuses
+    # Batch fetch demand calling statuses (use integer IDs for better index usage)
     demand_calling_query = (
         db.query(
             Calling.repayment_id,
@@ -351,7 +408,7 @@ def get_filtered_applications(
         .join(DemandCalling, Calling.status_id == DemandCalling.id)
         .filter(
             and_(
-                Calling.repayment_id.in_(payment_ids),
+                Calling.repayment_id.in_(payment_ids),  # Use integer IDs
                 Calling.Calling_id == 2,  # Demand calling
                 Calling.contact_type == 1
             )
@@ -360,13 +417,14 @@ def get_filtered_applications(
         .all()
     )
     
-    # Group demand calling statuses by repayment_id
+    # Group demand calling statuses by repayment_id (use string keys for lookup)
     demand_calling_by_payment = {}
     seen_demand = set()
     for demand in demand_calling_query:
-        if demand.repayment_id not in seen_demand:
-            seen_demand.add(demand.repayment_id)
-            demand_calling_by_payment[demand.repayment_id] = demand.demand_calling_status
+        repayment_id_str = str(demand.repayment_id)
+        if repayment_id_str not in seen_demand:
+            seen_demand.add(repayment_id_str)
+            demand_calling_by_payment[repayment_id_str] = demand.demand_calling_status
     
     # 🎯 OPTIMIZED! Batch fetch NACH status data only for IDs 2 and 3 (skip 1 - cleared status)
     nach_ids = list(set([row.payment_information for row in rows if row.payment_information is not None and row.payment_information != 1]))
@@ -375,16 +433,14 @@ def get_filtered_applications(
         nach_status_query = (
             db.query(
                 NachStatus.id,
-                NachStatus.nach_status,
-                NachStatus.reason
+                NachStatus.nach_reason
             )
             .filter(NachStatus.id.in_(nach_ids))
             .all()
         )
         for nach in nach_status_query:
             nach_status_by_id[nach.id] = {
-                "nach_status": nach.nach_status,
-                "reason": nach.reason
+                "nach_reason": nach.nach_reason
             }
     
     # 🎯 OPTIMIZED! Batch calculate current_overdue_amount for all loans (avoids N+1 queries)
@@ -428,10 +484,11 @@ def get_filtered_applications(
             "repossession_sale_date": row.repossession_sale_date.strftime('%Y-%m-%d') if row.repossession_sale_date else None,
             "repossession_sale_amount": float(row.repossession_sale_amount) if row.repossession_sale_amount else None,
             "current_dpd_bucket": row.current_dpd_bucket,
-            "total_overdue_amount": int(row.total_overdue_amount) if row.total_overdue_amount is not None else None,  # 🎯 ADDED! Total overdue from LMS
+            "total_overdue_amount": float(row.total_overdue_amount) if row.total_overdue_amount is not None else None,  # 🎯 ADDED! Total overdue from LMS
+            "total_pos": float(row.total_pos) if row.total_pos is not None else None,  # 🎯 ADDED! Total POS amount
             "current_overdue_amount": current_overdue_by_loan.get(row.loan_id),  # 🎯 ADDED! Calculated current overdue
-            "nach_status": "1" if row.payment_information == 1 else (nach_status_by_id.get(row.payment_information, {}).get("nach_status") if row.payment_information else None),  # 🎯 OPTIMIZED! "1" for cleared, actual status for 2/3
-            "reason": nach_status_by_id.get(row.payment_information, {}).get("reason") if row.payment_information and row.payment_information != 1 else None  # 🎯 OPTIMIZED! Only for 2/3, None for 1
+            "nach_status": "1" if row.payment_information == 1 else (str(row.payment_information) if row.payment_information else None),  # 🎯 "1" for cleared, id for others
+            "reason": nach_status_by_id.get(row.payment_information, {}).get("nach_reason") if row.payment_information and row.payment_information != 1 else None  # 🎯 Only send reason if id is not 1
         })
 
     return {

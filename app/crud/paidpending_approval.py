@@ -93,7 +93,8 @@ def process_paidpending_approval(
             and_(
                 ActivityLog.payment_id == payment_record.id,
                 ActivityLog.field_type_id == repayment_status_field.id,
-                ActivityLog.new_value == str(paid_pending_approval_status.id)  # Changed TO Paid(Pending Approval)
+                ActivityLog.new_value == str(paid_pending_approval_status.id),  # Changed TO Paid(Pending Approval)
+                ActivityLog.is_delete == 0  # Only show non-deleted records
             )
         ).order_by(desc(ActivityLog.created_at)).first()
         

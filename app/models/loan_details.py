@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DECIMAL, DATE, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Column, Integer, String, DECIMAL, Float, DATE, TIMESTAMP, ForeignKey, func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -16,7 +16,8 @@ class LoanDetails(Base):
     current_team_lead_id = Column(Integer)
     lenders_id = Column(Integer, ForeignKey("lenders.id"))
     tenure = Column(Integer)
-    total_overdue_amount = Column(Integer, nullable=True)  # 🎯 ADDED! Total overdue amount from LMS
+    total_overdue_amount = Column(Float, nullable=True)  # 🎯 ADDED! Total overdue amount from LMS
+    total_pos = Column(Float, nullable=True)  # 🎯 ADDED! Total POS amount
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 

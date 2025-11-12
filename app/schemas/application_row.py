@@ -31,7 +31,8 @@ class ApplicationItem(BaseModel):
     repossession_sale_date: Optional[str] = None  # 🎯 ADDED! Date when repossessed vehicle was sold
     repossession_sale_amount: Optional[float] = None  # 🎯 ADDED! Sale amount of repossessed vehicle
     current_dpd_bucket: Optional[str] = None  # 🎯 ADDED! Current DPD bucket from dpd_monthly_snapshot
-    total_overdue_amount: Optional[int] = None  # 🎯 ADDED! Total overdue amount from LMS
+    total_overdue_amount: Optional[float] = None  # 🎯 ADDED! Total overdue amount from LMS
+    total_pos: Optional[float] = None  # 🎯 ADDED! Total POS amount
     current_overdue_amount: Optional[float] = None  # 🎯 ADDED! Calculated current overdue amount
     nach_status: Optional[str] = None  # 🎯 ADDED! NACH status from nach_status master
     reason: Optional[str] = None  # 🎯 ADDED! NACH reason from nach_status master

@@ -34,7 +34,8 @@ def get_recent_activity(
     ).join(
         FieldTypes, ActivityLog.field_type_id == FieldTypes.id
     ).filter(
-        ActivityLog.created_at >= cutoff_date
+        ActivityLog.created_at >= cutoff_date,
+        ActivityLog.is_delete == 0  # Only show non-deleted records
     )
     
     if loan_id:

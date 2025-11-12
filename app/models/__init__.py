@@ -30,6 +30,7 @@ from .communication_log import CommunicationLog
 from .relationship import Relationship
 from .applicant_document import DocCategory, ApplicantDocument
 from .nach_status import NachStatus
+from .raw_pos_overdue import RawPosOverdue
 
 # Import Base for database operations
 from app.db.base import Base 
