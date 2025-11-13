@@ -85,3 +85,45 @@ def list_by_loan(
     ]
 
 
+@router.get("/by-category", response_model=List[ApplicantDocumentResponse])
+def get_documents_by_category(
+    loan_application_id: int = Query(..., description="Loan application ID"),
+    doc_category_id: int = Query(..., description="Document category ID (e.g., 11 for FI docs, other IDs for images, etc.)"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Get documents by loan_application_id and doc_category_id.
+    - doc_category_id = 11 → Returns FI PDFs
+    - doc_category_id = <image_category_id> → Returns images
+    - doc_category_id = <any_category_id> → Returns that category's documents
+    """
+    from app.models.applicant_document import ApplicantDocument
+    
+    items = db.query(ApplicantDocument)\
+        .filter(
+            ApplicantDocument.loan_application_id == loan_application_id,
+            ApplicantDocument.doc_category_id == doc_category_id
+        )\
+        .order_by(ApplicantDocument.created_at.desc())\
+        .all()
+    
+    return [
+        ApplicantDocumentResponse(
+            id=doc.id,
+            applicant_id=doc.applicant_id,
+            loan_application_id=doc.loan_application_id,
+            repayment_id=doc.repayment_id,
+            field_visit_location_id=doc.field_visit_location_id,
+            doc_category_id=doc.doc_category_id,
+            file_name=doc.file_name,
+            s3_key=doc.s3_key,
+            url=presign_get(doc.s3_key),
+            notes=doc.notes,
+            created_at=doc.created_at,
+            updated_at=doc.updated_at,
+        )
+        for doc in items
+    ]
+
+
