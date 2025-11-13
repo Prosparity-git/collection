@@ -35,15 +35,18 @@ except:
 
 def get_contact_details(db: Session, loan_id: int, contact_type: str):
     """Get contact details based on contact type and loan_id"""
+    # First, get the loan details to access the main applicant_id
+    loan_details = db.query(LoanDetails).filter(
+        LoanDetails.loan_application_id == loan_id
+    ).first()
+    
+    if not loan_details:
+        return None, None, "Loan not found"
+    
+    main_applicant_id = loan_details.applicant_id  # Always use main applicant's ID
+    
     if contact_type == "applicant":
         # Get applicant details
-        loan_details = db.query(LoanDetails).filter(
-            LoanDetails.loan_application_id == loan_id
-        ).first()
-        
-        if not loan_details:
-            return None, None, "Loan not found"
-        
         applicant = db.query(ApplicantDetails).filter(
             ApplicantDetails.applicant_id == loan_details.applicant_id
         ).first()
@@ -51,7 +54,7 @@ def get_contact_details(db: Session, loan_id: int, contact_type: str):
         if not applicant or not applicant.mobile:
             return None, None, "Applicant mobile number not found"
         
-        return applicant.mobile, applicant.applicant_id, None
+        return applicant.mobile, main_applicant_id, None
     
     elif contact_type == "co_applicant":
         # Get co-applicant details
@@ -62,7 +65,8 @@ def get_contact_details(db: Session, loan_id: int, contact_type: str):
         if not co_applicant or not co_applicant.mobile:
             return None, None, "Co-applicant mobile number not found"
         
-        return co_applicant.mobile, f"co_app_{co_applicant.id}", None
+        # Return co-applicant's mobile but main applicant's ID
+        return co_applicant.mobile, main_applicant_id, None
     
     else:
         return None, None, f"Invalid contact type: {contact_type}. Only 'applicant' and 'co_applicant' are supported."
@@ -144,9 +148,13 @@ def send_otp_payment(
             raise HTTPException(status_code=400, detail=result["message"])
         
         # 6. Create communication record
+        # Map contact_type string to integer: "applicant" -> 1, "co_applicant" -> 2
+        contact_type_int = 1 if request.contact_type.value == "applicant" else 2
+        
         communication = Communication(
             loan_id=request.loan_id,
-            applicant_id=contact_id,  # This will be the contact ID (applicant_id, co_app_1, ref_1, guar_1)
+            applicant_id=contact_id,  # Always the main applicant's ID
+            contact_type=contact_type_int,  # 1=applicant, 2=co_applicant
             repayment_id=request.repayment_id,
             template_id=template.template_id,
             send_by=current_user["id"],
@@ -163,7 +171,8 @@ def send_otp_payment(
             event_type="api_success" if success else "api_failed",
             meta_data=json.dumps({
                 "msg91_result": result,
-                "variables": otp_variables
+                "variables": otp_variables,
+                "mobile_number": mobile_number
             })
         )
         db.add(log_event)
@@ -230,7 +239,10 @@ def verify_otp_payment(
             log_event = CommunicationLog(
                 communication_id=communication.communication_id,
                 event_type="verify_success" if success else "verify_failed",
-                meta_data=json.dumps(result)
+                meta_data=json.dumps({
+                    **result,
+                    "mobile_number": mobile_number
+                })
             )
             db.add(log_event)
             # Ensure log is stored regardless of verify outcome

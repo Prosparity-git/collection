@@ -16,3 +16,6 @@ class RawPosOverdue(Base):
     nach_reason = Column(Text, nullable=True)
     create_date = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
+
+
+
