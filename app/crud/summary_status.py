@@ -55,11 +55,11 @@ def get_summary_status_with_filters(
         .select_from(PaymentDetails)
         .join(LoanDetails, PaymentDetails.loan_application_id == LoanDetails.loan_application_id)
         .join(ApplicantDetails, LoanDetails.applicant_id == ApplicantDetails.applicant_id)
-        .join(Branch, ApplicantDetails.branch_id == Branch.id)
-        .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
-        .join(Lender, LoanDetails.lenders_id == Lender.id)
-        .join(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
-        .join(TL, PaymentDetails.current_team_lead_id == TL.id)
+        .outerjoin(Branch, ApplicantDetails.branch_id == Branch.id)
+        .outerjoin(Dealer, ApplicantDetails.dealer_id == Dealer.id)
+        .outerjoin(Lender, LoanDetails.lenders_id == Lender.id)
+        .outerjoin(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
+        .outerjoin(TL, PaymentDetails.current_team_lead_id == TL.id)
         .outerjoin(SourceRM,LoanDetails.source_relationship_manager_id == SourceRM.id)
         .outerjoin(SourceTL,LoanDetails.source_team_lead_id == SourceTL.id)
        # .join(TL, LoanDetails.source_relationship_manager_id == TL.id)
@@ -72,6 +72,9 @@ def get_summary_status_with_filters(
         )
         .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
     )
+    
+    # Exclude foreclose status applicants from all calculations
+    query = query.filter(RepaymentStatus.repayment_status != "Foreclose")
     
     # Apply filters (same logic as application_row API)
     if emi_month:
@@ -226,30 +229,49 @@ def get_summary_status_with_filters(
         'overdue': 0,
         'partially_paid': 0,
         'paid': 0,
-        'foreclose': 0,
         'paid_pending_approval': 0,
-        'paid_rejected': 0,
         'overdue_paid': 0
     }
     
-    # Status mapping to exact fields
+    # Status mapping to exact fields (excluding foreclose and paid_rejected)
     status_map = {
         'Future': 'future',
         'Overdue': 'overdue',
         'Partially Paid': 'partially_paid',
         'Paid': 'paid',
-        'Foreclose': 'foreclose',
-        'Paid(Pending Approval)': 'paid_pending_approval',
-        'Paid Rejected': 'paid_rejected'
+        'Paid(Pending Approval)': 'paid_pending_approval'
     }
     
     for status_id, count in results:
         status_str = db.query(RepaymentStatus.repayment_status).filter(RepaymentStatus.id == status_id).scalar()
         if status_str:
             key = status_map.get(status_str)
+            # Skip foreclose and paid_rejected - don't count them
+            if status_str in ['Foreclose', 'Paid Rejected']:
+                continue
             if key and key in summary:
                 summary[key] += count
             summary['total'] += count
+    
+    # Recalculate paid: Only count payments with repayment_status_id = 3 (Paid) 
+    # AND payment_date <= demand_date (with NULL checks)
+    # First, subtract the original paid count from total
+    original_paid_count = summary.get('paid', 0)
+    summary['total'] -= original_paid_count
+    
+    # Calculate paid with proper conditions: payment_date <= demand_date
+    paid_query = query.filter(
+        and_(
+            PaymentDetails.repayment_status_id == 3,  # Paid status
+            PaymentDetails.payment_date.isnot(None),  # Must have payment_date
+            PaymentDetails.demand_date.isnot(None),   # Must have demand_date
+            func.date(PaymentDetails.payment_date) <= func.date(PaymentDetails.demand_date)
+        )
+    )
+    
+    paid_count = paid_query.count()
+    summary['paid'] = paid_count
+    summary['total'] += paid_count
     
     # Calculate overdue_paid: Payments with repayment_status_id = 3 (Paid) 
     # AND payment_date > demand_date

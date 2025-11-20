@@ -19,7 +19,5 @@ class SummaryStatusResponse(BaseModel):
     overdue: int
     partially_paid: int
     paid: int
-    foreclose: int
     paid_pending_approval: int
-    paid_rejected: int
     overdue_paid: int 

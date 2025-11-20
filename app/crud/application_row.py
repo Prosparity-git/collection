@@ -180,15 +180,15 @@ def get_filtered_applications(
             .select_from(LoanDetails)
             .join(ApplicantDetails, LoanDetails.applicant_id == ApplicantDetails.applicant_id)
             .join(PaymentDetails, payment_join_condition)
-            .join(Branch, ApplicantDetails.branch_id == Branch.id)
-            .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
-            .join(Lender, LoanDetails.lenders_id == Lender.id)
-            .join(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)
-            .join(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
+            .outerjoin(Branch, ApplicantDetails.branch_id == Branch.id )
+            .outerjoin(Dealer, ApplicantDetails.dealer_id == Dealer.id)
+            .outerjoin(Lender, LoanDetails.lenders_id == Lender.id)
+            .outerjoin(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)
+            .outerjoin(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
             .outerjoin(CurrentTL, PaymentDetails.current_team_lead_id == CurrentTL.id)
             .outerjoin(SourceRM, LoanDetails.source_relationship_manager_id == SourceRM.id)
             .outerjoin(SourceTL, LoanDetails.source_team_lead_id == SourceTL.id)
-            .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
+            .outerjoin(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
             .outerjoin(VehicleRepossessionStatus, VehicleRepossessionStatus.loan_application_id == LoanDetails.loan_application_id)
             .outerjoin(VehicleStatus, VehicleRepossessionStatus.vehicle_status == VehicleStatus.id)
             .outerjoin(
@@ -218,23 +218,23 @@ def get_filtered_applications(
             db.query(*base_fields)
             .select_from(LoanDetails)
             .join(ApplicantDetails, LoanDetails.applicant_id == ApplicantDetails.applicant_id)
-            .join(
+            .outerjoin(
                 latest_payment_cte,
                 LoanDetails.loan_application_id == latest_payment_cte.c.loan_application_id
             )
-            .join(
+            .outerjoin(
                 PaymentDetails,
                 PaymentDetails.id == latest_payment_cte.c.id
             )
-            .join(Branch, ApplicantDetails.branch_id == Branch.id)
-            .join(Dealer, ApplicantDetails.dealer_id == Dealer.id)
-            .join(Lender, LoanDetails.lenders_id == Lender.id)
-            .join(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)
-            .join(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
+            .outerjoin(Branch, ApplicantDetails.branch_id == Branch.id)
+            .outerjoin(Dealer, ApplicantDetails.dealer_id == Dealer.id)
+            .outerjoin(Lender, LoanDetails.lenders_id == Lender.id)
+            .outerjoin(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)
+            .outerjoin(RM, PaymentDetails.Collection_relationship_manager_id == RM.id)
             .outerjoin(CurrentTL, PaymentDetails.current_team_lead_id == CurrentTL.id)
             .outerjoin(SourceRM, LoanDetails.source_relationship_manager_id == SourceRM.id)
             .outerjoin(SourceTL, LoanDetails.source_team_lead_id == SourceTL.id)
-            .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
+            .outerjoin(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
             .outerjoin(VehicleRepossessionStatus, VehicleRepossessionStatus.loan_application_id == LoanDetails.loan_application_id)
             .outerjoin(VehicleStatus, VehicleRepossessionStatus.vehicle_status == VehicleStatus.id)
             .outerjoin(

@@ -31,14 +31,12 @@ def summary_status_route(
     Example: branch=Mumbai,Delhi,Bangalore&status=Paid,Pending,Overdue
     
     Returns summary counts for:
-    - total: Total number of records
+    - total: Total number of records (excluding foreclose and paid_rejected)
     - future: Future payments
     - overdue: Overdue payments  
     - partially_paid: Partially paid
-    - paid: Fully paid
-    - foreclose: Foreclosed
+    - paid: Fully paid (payment_date <= demand_date)
     - paid_pending_approval: Paid but pending approval
-    - paid_rejected: Paid but rejected
     - overdue_paid: Payments that were paid after demand date
     """
     return get_summary_status_with_filters(
