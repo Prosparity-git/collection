@@ -115,7 +115,7 @@ def get_application_contacts(
             "loan_id": loan_id_int,
             "applicant": {
                 "id": applicant.applicant_id,
-                "name": f"{applicant.first_name or ''} {applicant.last_name or ''}".strip(),
+                "name": f"{applicant.first_name or ''} {applicant.middle_name or ''} {applicant.last_name or ''}".strip().replace('  ', ' '),
                 "phone": getattr(applicant, 'mobile', None) or getattr(applicant, 'phone', None),
                 "email": getattr(applicant, 'email', None),
                 "type": "applicant"

@@ -124,6 +124,7 @@ def get_filtered_applications(
         LoanDetails.loan_application_id.label("loan_id"),
         PaymentDetails.demand_num.label("demand_num"),
         ApplicantDetails.first_name,
+        ApplicantDetails.middle_name,
         ApplicantDetails.last_name,
         ApplicantDetails.mobile,
         PaymentDetails.demand_amount.label("emi_amount"),
@@ -262,8 +263,9 @@ def get_filtered_applications(
             search_conditions = []
             for term in search_terms:
                 search_conditions.append(or_(
-                    func.concat(ApplicantDetails.first_name, ' ', ApplicantDetails.last_name).ilike(f'%{term}%'),
+                    func.concat(ApplicantDetails.first_name, ' ', ApplicantDetails.middle_name, ' ', ApplicantDetails.last_name).ilike(f'%{term}%'),
                     ApplicantDetails.first_name.ilike(f'%{term}%'),
+                    ApplicantDetails.middle_name.ilike(f'%{term}%'),
                     ApplicantDetails.last_name.ilike(f'%{term}%'),
                     ApplicantDetails.applicant_id.ilike(f'%{term}%')
                 ))
@@ -457,7 +459,7 @@ def get_filtered_applications(
             "loan_id": row.loan_id,
             "payment_id": row.payment_id,
             "demand_num": str(row.demand_num) if row.demand_num else None,
-            "applicant_name": f"{row.first_name or ''} {row.last_name or ''}".strip(),
+            "applicant_name": f"{row.first_name or ''} {row.middle_name or ''} {row.last_name or ''}".strip().replace('  ', ' '),
             "mobile": str(row.mobile) if row.mobile else None,
             "emi_amount": float(row.emi_amount) if row.emi_amount else None,
             "status": row.status,

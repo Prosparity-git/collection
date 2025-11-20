@@ -36,6 +36,7 @@ def get_paid_pending_applications(
         db.query(
             ApplicantDetails.applicant_id.label("loan_id"),
             ApplicantDetails.first_name,
+            ApplicantDetails.middle_name,
             ApplicantDetails.last_name,
             PaymentDetails.demand_amount.label("emi_amount"),
             PaymentDetails.id.label("repayment_id"),  # 🎯 CHANGED! From demand_date to repayment_id
@@ -76,7 +77,7 @@ def get_paid_pending_applications(
         
         results.append({
             "loan_id": str(row.loan_id),
-            "applicant_name": f"{row.first_name or ''} {row.last_name or ''}".strip(),
+            "applicant_name": f"{row.first_name or ''} {row.middle_name or ''} {row.last_name or ''}".strip().replace('  ', ' '),
             "emi_amount": float(row.emi_amount) if row.emi_amount else None,
             "repayment_id": str(row.repayment_id),  # 🎯 CHANGED! From demand_date to repayment_id
             "ptp_date": row.ptp_date.strftime('%Y-%m-%d') if row.ptp_date else None,

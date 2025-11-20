@@ -64,7 +64,7 @@ def get_paidpending_applications_list(
                     "loan_id": payment.loan_application_id,
                     "repayment_id": str(payment.id),  # 🎯 ADDED! Repayment ID
                     "applicant_id": loan.applicant_id,
-                    "applicant_name": f"{applicant.first_name or ''} {applicant.last_name or ''}".strip() if applicant else "Unknown",
+                    "applicant_name": f"{applicant.first_name or ''} {applicant.middle_name or ''} {applicant.last_name or ''}".strip().replace('  ', ' ') if applicant else "Unknown",
                     "current_status": current_status.repayment_status if current_status else "Unknown",
                     "amount_collected": float(payment.amount_collected) if payment.amount_collected else 0,
                     "ptp_date": payment.ptp_date.isoformat() if payment.ptp_date else None,
@@ -144,7 +144,7 @@ def get_paidpending_application_status(
             "loan_id": loan_id_int,
             "repayment_id": str(payment_record.id),  # 🎯 ADDED! Repayment ID
             "applicant_id": loan.applicant_id if loan else None,
-            "applicant_name": f"{applicant.first_name or ''} {applicant.last_name or ''}".strip() if applicant else "Unknown",
+            "applicant_name": f"{applicant.first_name or ''} {applicant.middle_name or ''} {applicant.last_name or ''}".strip().replace('  ', ' ') if applicant else "Unknown",
             "current_status": current_status.repayment_status if current_status else "Unknown",
             "status_id": payment_record.repayment_status_id,
             "is_paid_pending": is_paid_pending,
