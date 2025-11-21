@@ -2,7 +2,7 @@ import uuid
 import boto3
 from botocore.config import Config as BotoConfig
 from app.core.config import settings
-
+#
 # Hardcoded AWS S3 configuration (requested to avoid env usage)
 
 _session = boto3.session.Session(
