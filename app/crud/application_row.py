@@ -180,7 +180,7 @@ def get_filtered_applications(
             .select_from(LoanDetails)
             .join(ApplicantDetails, LoanDetails.applicant_id == ApplicantDetails.applicant_id)
             .join(PaymentDetails, payment_join_condition)
-            .outerjoin(Branch, ApplicantDetails.branch_id == Branch.id )
+            .outerjoin(Branch, ApplicantDetails.branch_id == Branch.id)
             .outerjoin(Dealer, ApplicantDetails.dealer_id == Dealer.id)
             .outerjoin(Lender, LoanDetails.lenders_id == Lender.id)
             .outerjoin(OwnershipType, ApplicantDetails.ownership_type_id == OwnershipType.id)

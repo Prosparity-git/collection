@@ -73,8 +73,16 @@ def get_summary_status_with_filters(
         .join(RepaymentStatus, PaymentDetails.repayment_status_id == RepaymentStatus.id)
     )
     
-    # Exclude foreclose status applicants from all calculations
-    query = query.filter(RepaymentStatus.repayment_status != "Foreclose")
+    # Check if Foreclose is explicitly being filtered - if yes, include it
+    exclude_foreclose = True
+    if status:
+        status_list = [s.strip() for s in status.split(',') if s.strip()]
+        if "Foreclose" in status_list:
+            exclude_foreclose = False
+    
+    # Exclude foreclose status applicants from all calculations (unless explicitly filtered)
+    if exclude_foreclose:
+        query = query.filter(RepaymentStatus.repayment_status != "Foreclose")
     
     # Apply filters (same logic as application_row API)
     if emi_month:
@@ -242,12 +250,26 @@ def get_summary_status_with_filters(
         'Paid(Pending Approval)': 'paid_pending_approval'
     }
     
+    # 🎯 FIX: Batch fetch all RepaymentStatus records to avoid N+1 queries
+    status_ids = [status_id for status_id, count in results if status_id is not None]
+    status_by_id = {}
+    if status_ids:
+        status_records = db.query(RepaymentStatus.id, RepaymentStatus.repayment_status).filter(
+            RepaymentStatus.id.in_(status_ids)
+        ).all()
+        for status_record in status_records:
+            status_by_id[status_record.id] = status_record.repayment_status
+    
     for status_id, count in results:
-        status_str = db.query(RepaymentStatus.repayment_status).filter(RepaymentStatus.id == status_id).scalar()
+        status_str = status_by_id.get(status_id) if status_id else None
         if status_str:
             key = status_map.get(status_str)
-            # Skip foreclose and paid_rejected - don't count them
-            if status_str in ['Foreclose', 'Paid Rejected']:
+            # If Foreclose is explicitly filtered, count it in total but don't show as separate field
+            if status_str == 'Foreclose' and not exclude_foreclose:
+                summary['total'] += count
+                continue
+            # Skip foreclose and paid_rejected - don't count them (unless explicitly filtered)
+            if status_str in ['Foreclose', 'Paid Rejected'] and exclude_foreclose:
                 continue
             if key and key in summary:
                 summary[key] += count
